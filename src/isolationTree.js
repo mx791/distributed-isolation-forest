@@ -1,3 +1,4 @@
+// créer un sous-échantillon d'un jeu de données
 const buildSubSample = (samplesCount, dataset) => {
     let subDataset = [];
     const ids = [];
@@ -11,6 +12,8 @@ const buildSubSample = (samplesCount, dataset) => {
     return subDataset;
 }
 
+// Isolation Forest
+// créer un split en chsoisissant une variable et un seuil
 const splitDataset = (x) => {
     let [a, b] = [[], []];
     let splitFeartureId = -1;
@@ -57,6 +60,8 @@ const splitDataset = (x) => {
     return [a, b, [splitFeartureId, splitValue]];
 }
 
+// Extended Isolation Forest
+// Split en créant un hyperplan
 const splitDatasetExtended = (x) => {
 
     let [a, b] = [[], []];
@@ -96,6 +101,8 @@ const splitDatasetExtended = (x) => {
     return [a, b, [normalVector, intercept]]
 }
 
+// vérifie si les deux prmeières lignes d'un jeu de données sont égales
+// si ce n'est pas le cas, le jeu de données contient au moins deux lignes diffférentes -> pas isolé
 const areFirstRowsEquals = (x) => {
     if (x.length < 2) {
         return false;
@@ -108,6 +115,7 @@ const areFirstRowsEquals = (x) => {
     return true;
 }
 
+// suppression des doublons sur les premières lignes
 const cleanDoubles = (x) => {
     while (areFirstRowsEquals(x) && x.length > 1) {
         x = x.slice(1, x.length)
@@ -115,6 +123,7 @@ const cleanDoubles = (x) => {
     return x
 }
 
+// entrainement d'un arbre d'isolation sur un jeu de données
 const buildIsolationTree = (x, useExtended) => {
 
     if (x.length <= 1) { // plus qu'une valeur dans le ds -> noeud terminal
@@ -137,6 +146,7 @@ const buildIsolationTree = (x, useExtended) => {
     }
 }
 
+// caclul la profondeur moyennes des noeuds d'un arbre
 const getTreesAverageDepth = (tree) => {
     let sum = 0;
     let count = 0;
@@ -161,6 +171,7 @@ const getTreesAverageDepth = (tree) => {
     return sum / count
 }
 
+// caclul le score d'isolation d'un arbre pour une nouvelle ligne de données
 const getTreesPrediction = (tree, value, useExtended) => {
     let depth = 1;
     let nextNode = tree;
@@ -190,6 +201,7 @@ const getTreesPrediction = (tree, value, useExtended) => {
     return depth
 }
 
+// TODO : changer la formule
 const scoreTreePrediction = (averageDepth, computedDepth) => {
     return Math.pow(2, -averageDepth/computedDepth)
 }

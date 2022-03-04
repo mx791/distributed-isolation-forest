@@ -15,7 +15,7 @@ connection.on("open", () => {
     }));
 
     // chargement du csv
-    fs.createReadStream("./winequality-red.csv")
+    fs.createReadStream("../datas/winequality-red.csv")
     .pipe(parse({delimiter: ','}))
     .on('data', function(csvrow) {
         // on envoie les données au cluster

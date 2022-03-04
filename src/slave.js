@@ -13,6 +13,9 @@ let useExtended = false;
 
 connection.on("open", () => {
     console.log("Connected to cluster")
+    connection.send(JSON.stringify({
+        type: "node-connect"
+    }));
 });
 
 

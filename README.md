@@ -19,20 +19,20 @@ Trois scripts sont disponnibles :
 Noeud qui permet de créer le cluster.
 Pour le lancer :
 ```
-node master.js
+node src/master.js
 ```
 
 ### Slave.js
 Noeud dit "worker". Se connecte au master et execute les instructions.
 Pour le lancer :
 ```
-node slave.js
+node src/slave.js
 ```
 
 ### Controller.js
 Pour tester le tout. Le script se connecte au matser, charge le jeu de données "winequality.csv" sur le cluster, puis execute l'entrainement de l'isolation forest.
 ```
-node controller.js
+node tests/controller.js
 ```
 
 
@@ -42,7 +42,7 @@ Testé sous node v16.13
 Pour tout lancer :
 ```
 npm i
-node master.js
-node slave;js
-node controller.js
+node src/master.js
+node src/slave;js
+node tests/controller.js
 ```
