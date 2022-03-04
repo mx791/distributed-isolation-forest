@@ -21,7 +21,13 @@ connection.on("open", () => {
 
 connection.on("message", (msg) => {
 
-    const parsedMsg = JSON.parse(msg);
+    let parsedMsg = null;
+    
+    try {
+        parsedMsg = JSON.parse(msg);
+    } catch(e) {
+        return;
+    }
 
     if (parsedMsg['type'] == "reset-dataset") {
         dataset = [];
@@ -39,9 +45,10 @@ connection.on("message", (msg) => {
         useExtended = parsedMsg['extended'];
         const tree = buildIsolationTree(
             buildSubSample(
-                parsedMsg['n_samples'], dataset
+                Math.min(parsedMsg['n_samples'], dataset.length), dataset
             ), useExtended
         );
+        console.log(tree)
         trees.push(tree);
         connection.send(JSON.stringify({
             type: "trained-isolation-forest",

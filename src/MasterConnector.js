@@ -40,21 +40,22 @@ module.exports = class MasterConnector {
 
     async trainIsolationForest(useExtended, nTress, subDatasetSize) {
         return new Promise((resolve) => {
-            let connection = new WebSocket(this.masterAdress);
-            connection.on("open", () => {
-                connection.send(JSON.stringify({
-                    type: "train-isolation-forest",
-                    extended: useExtended,
-                    n_trees: nTress
-                }));
-                connection.on("message", msg => {
-                    console.log("test")
+            this.connection.send(JSON.stringify({
+                type: "train-isolation-forest",
+                extended: useExtended,
+                n_trees: nTress,
+                n_samples: subDatasetSize
+            }));
+
+            this.connection.on("message", (msg) => {
+                try {
                     const parsedMsg = JSON.parse(msg);
+
                     if (parsedMsg["type"] == "trained-isolation-forest") {
                         resolve(parsedMsg["content"])
                     }
-                })
-            });
+                } catch(e) {}
+            })
         })
     }
 

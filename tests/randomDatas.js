@@ -2,7 +2,7 @@ const MasterConnector = require("../src/MasterConnector");
 
 async function main() {
 
-    const master = new MasterConnector('ws://localhost:8080')
+    const master = new MasterConnector('ws://localhost:8090')
     await master.connect()
 
     master.resetDataset()

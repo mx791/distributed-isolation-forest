@@ -17,10 +17,35 @@ let trees = [];
 let predictions = {}
 let predictionsCounter = {}
 
+let controllers = [];
+
+function checkNodesAndController() {
+    Object.keys(nodePool).map(key => {
+        try {
+            nodePool[key].send("test")
+        } catch (e) {
+            delete nodePool[key]
+        }
+    });
+
+    controllers = controllers.filter((con) => {
+        try {
+            con.send("test");
+            return true
+        } catch (e) {
+            return false
+        }
+    });
+}
+
 // connexion au master
 wsm.on("connection", (masterWs) => {
+
+    controllers.push(masterWs)
+
     masterWs.on("message", (msg) => {
         let parsedMsg = {};
+        checkNodesAndController();
 
         try {
             parsedMsg = JSON.parse(msg);
@@ -42,8 +67,16 @@ wsm.on("connection", (masterWs) => {
                 Object.keys(nodePool).map(connection => nodePool[connection].send(msg));
             } else {
                 // la ligne est transmise à un seul noeud choisi au hasard
-                const indx = Math.floor(Math.random()*Object.keys(nodePool).length);
-                nodePool[indx].send(msg)
+                if (Object.keys(nodePool).length == 0) {
+                    return;
+                }
+                while (true) {
+                    const indx = Math.floor(Math.random()*Object.keys(nodePool).length);
+                    if (typeof nodePool[indx] != "undefined") {
+                        nodePool[indx].send(msg);
+                        return;
+                    }
+                }
             }
         }
 
@@ -52,7 +85,7 @@ wsm.on("connection", (masterWs) => {
 
             // on extrait les params
             isolationForestParameters['n_trees'] = parsedMsg['n_trees'] ?? 200;
-            isolationForestParameters['n_samples'] = parsedMsg['n_samples'] ?? Math.min(256, dataset.length);
+            isolationForestParameters['n_samples'] = parsedMsg['n_samples'] ?? 256;
             isolationForestParameters['extended'] = parsedMsg['extended'] ?? true;
 
             // repartit les calculs sur les noeuds connectés
@@ -100,6 +133,8 @@ wss.on("connection", (ws) => {
 
     ws.on("message", (msg) => {
 
+        checkNodesAndController();
+
         let parsedMsg = {};
 
         try {
@@ -121,10 +156,10 @@ wss.on("connection", (ws) => {
             } else {
                 // tous les arbres ont été entrainé --> on envoie les arbres au controller
                 console.log("send trees to controller")
-                ws.send(JSON.stringify({
+                controllers.map(connection => connection.send(JSON.stringify({
                     type: "trained-isolation-forest",
                     content: trees
-                }));
+                })));
             }
         }
         
