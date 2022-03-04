@@ -14,9 +14,11 @@ connection.on("open", () => {
         type: "reset-dataset"
     }));
 
+    // chargement du csv
     fs.createReadStream("./winequality-red.csv")
     .pipe(parse({delimiter: ','}))
     .on('data', function(csvrow) {
+        // on envoie les données au cluster
         connection.send(JSON.stringify({
             type: "add-dataset-line",
             content: csvrow.map(value => parseFloat(value))
@@ -24,6 +26,7 @@ connection.on("open", () => {
     })
     .on('end',function() {
         console.log("dataset envoyé au master")
+        // entrainement du modèle
         connection.send(JSON.stringify({
             type: "train-isolation-forest",
             extended: false,
