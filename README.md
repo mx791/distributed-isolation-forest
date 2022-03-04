@@ -34,3 +34,15 @@ Pour tester le tout. Le script se connecte au matser, charge le jeu de données 
 ```
 node controller.js
 ```
+
+
+### Tests
+
+Testé sous node v16.13
+Pour tout lancer :
+```
+npm i
+node master.js
+node slave;js
+node controller.js
+```
