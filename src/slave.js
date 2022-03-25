@@ -1,6 +1,6 @@
 const os = require("os")
 const WebSocket = require('ws');
-const { splitDataset, buildIsolationTree, buildSubSample, getTreesAverageDepth, getTreesPrediction, scoreTreePrediction } = require("./isolationTree");
+const { splitDataset, buildIsolationTree, buildSubSample, getTreeAverageDepth, getTreesPrediction, scoreTreePrediction } = require("./isolationTree");
 
 const cpuData = os.cpus()
 
@@ -58,17 +58,28 @@ connection.on("message", (msg) => {
     }
 
     if (parsedMsg['type'] == "perform-isolation-forest") {
-        for (let i=0; i<trees.length; i++) {
-            const avgDepth = getTreesAverageDepth(trees[i]);
-            let predictions = {};
-            for (let e=0; e<dataset.length; e++) {
-                predictions[e] = scoreTreePrediction(avgDepth, getTreesPrediction(trees[i], dataset[e], useExtended))
-            }
 
-            connection.send(JSON.stringify({
-                type: "performed-isolation-forest",
-                predictions: predictions
-            }));
+        const trees = parsedMsg['trees'];
+        const datas = parsedMsg["datas"] ?? dataset;
+
+        let treesDepth = 0;
+
+        for (let i=0; i<trees.length; i++) {
+            treesDepth += getTreeAverageDepth(trees[i]) / trees.length;
+            let predictions = {};
+            for (let e=0; e<datas.length; e++) {
+                predictions[e] = typeof predictions[e] == "undefined" ? 0 : predictions[e];
+                predictions[e] += getTreesPrediction(trees[i], datas[e], useExtended)
+            }
         }
+
+        for (let e=0; e<datas.length; e++) {
+            predictions[e] += scoreTreePrediction(predictions[e], treesDepth)
+        }
+
+        connection.send(JSON.stringify({
+            type: "performed-isolation-forest",
+            predictions: predictions
+        }));
     }
 })

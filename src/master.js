@@ -17,6 +17,7 @@ let trees = [];
 
 let predictions = {}
 let predictionsCounter = {}
+let predictionsCount = 0;
 
 let controllers = [];
 
@@ -105,8 +106,12 @@ wsm.on("connection", (masterWs) => {
         if (parsedMsg['type'] == "perform-isolation-forest") {
             predictions = {};
             predictionsCounter = {}
+            let tress = parsedMsg['trees'];
+            predictionsCount = 0;
+
             Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
-                type: "perform-isolation-forest"
+                type: "perform-isolation-forest",
+                trees: trees
             })));
         }
     })
@@ -116,13 +121,6 @@ wsm.on("connection", (masterWs) => {
 wss.on("connection", (ws) => {
 
     let nodeId = nodeCounter;
-    // on envoie les données au nouveau noeud
-    if (USE_DATASET_REPLICATION) {
-        dataset.map(line => ws.send(JSON.stringify({
-            type: "add-dataset-line",
-            content: line
-        })));
-    }
     nodeCounter += 1;
     nodePool[nodeId] = ws;
     console.log("Nouveau noeud connecté !");
@@ -171,14 +169,19 @@ wss.on("connection", (ws) => {
         // l'algo a été testé
         if (parsedMsg['type'] == "performed-isolation-forest") {
             let currentPreds = parsedMsg['predictions']
+            predictionsCount += 1;
+
             Object.keys(currentPreds).map((key) => {
-                if (predictions[key] == null) {
-                    predictions[key] = 0;
-                    count[key] = 0
-                }
-                predictions[key] +=  currentPreds[key]
-                predictionsCounter[key] += 1
+                predictions[key] = currentPreds[key]
             });
+
+            if (predictionsCount == nodePool.length) {
+                controllers.map(connection => connection.send(JSON.stringify({
+                    type: "performed-isolation-forest",
+                    predictions: predictions
+                })));
+            }
+            
         }
 
     })

@@ -147,7 +147,7 @@ const buildIsolationTree = (x, useExtended) => {
 }
 
 // caclul la profondeur moyennes des noeuds d'un arbre
-const getTreesAverageDepth = (tree) => {
+const getTreeAverageDepth = (tree) => {
     let sum = 0;
     let count = 0;
     let depth = 1;
@@ -201,8 +201,7 @@ const getTreesPrediction = (tree, value, useExtended) => {
     return depth
 }
 
-// TODO : changer la formule
-const scoreTreePrediction = (averageDepth, computedDepth) => {
+const scoreTreePrediction = (computedDepth, averageDepth) => {
     return Math.pow(2, -averageDepth/computedDepth)
 }
 
@@ -211,7 +210,7 @@ module.exports = {
     buildSubSample,
     splitDatasetExtended,
     splitDataset,
-    getTreesAverageDepth,
+    getTreeAverageDepth,
     getTreesPrediction,
     scoreTreePrediction
 }

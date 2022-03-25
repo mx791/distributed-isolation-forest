@@ -59,5 +59,24 @@ module.exports = class MasterConnector {
         })
     }
 
+    async performIsolationForest(trees) {
+        return new Promise((resolve) => {
+            this.connection.send(JSON.stringify({
+                type: "perform-isolation-forest",
+                trees: trees
+            }));
+
+            this.connection.on("message", (msg) => {
+                try {
+                    const parsedMsg = JSON.parse(msg);
+
+                    if (parsedMsg["type"] == "performed-isolation-forest") {
+                        resolve(parsedMsg["predictions"])
+                    }
+                } catch(e) {}   
+            });
+        });
+    }
+
 
 }
