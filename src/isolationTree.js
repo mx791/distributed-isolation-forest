@@ -23,7 +23,7 @@ const splitDataset = (x) => {
 
     if (x.length < 2) {
         return null;
-    }
+    }    
 
     while (
         (a.length == 0 || b.length == 0)
@@ -82,7 +82,7 @@ const splitDatasetExtended = (x) => {
         const point = x[Math.floor(Math.random()*x.length)];
         intercept = 0;
         for (let i=0; i<point.length; i++) {
-            intercept += point[i] * normalVector[i]
+            intercept += - point[i] * normalVector[i]
         }
 
         // split du dataset
@@ -141,8 +141,8 @@ const buildIsolationTree = (x, useExtended) => {
 
     return {
         split: splitMethod,
-        ifTrue: buildIsolationTree(a),
-        ifFalse: buildIsolationTree(b)
+        ifTrue: buildIsolationTree(a, useExtended),
+        ifFalse: buildIsolationTree(b, useExtended)
     }
 }
 
@@ -180,12 +180,12 @@ const getTreesPrediction = (tree, value, useExtended) => {
         let right = true;
         if (useExtended) {
 
-            let value = 0;
+            let planValue = 0;
             let [normalVector, intercept] = nextNode.split
             for (let e=0; e<normalVector.length; e++) {
-                value += normalVector[e] * value[e]
+                planValue += normalVector[e] * value[e]
             }
-            right = value > intercept
+            right = planValue > intercept
 
         } else {
             right = value[nextNode.split[0]] > nextNode.split[1]
@@ -205,6 +205,27 @@ const scoreTreePrediction = (computedDepth, averageDepth) => {
     return Math.pow(2, -computedDepth/averageDepth)
 }
 
+// calcul les score d'anomalies moyens sur deux jeux de données
+const modelEvaluation = (trees, useExtended, regularDatas, anomalies) => {
+    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value);
+    let regularPredictions = regularDatas.map((values) => {
+        let pred = trees
+            .map(tree => getTreesPrediction(tree, values, useExtended))
+            .reduce((acc, value) => acc + value, 0);
+        return scoreTreePrediction(pred, avgDepth)
+    }).sort();
+
+    let anomaliesPredictions = anomalies.map((values) => {
+        let pred = trees
+            .map(tree => getTreesPrediction(tree, values, useExtended))
+            .reduce((acc, value) => acc + value, 0);
+        return scoreTreePrediction(pred, avgDepth)
+    }).sort().reverse();
+
+    console.log("moyenne des anomalies:", anomaliesPredictions.reduce((acc, value) => acc+value, 0) / anomalies.length)    
+    console.log("moyenne des données régulières:", regularPredictions.reduce((acc, value) => acc+value, 0) / regularDatas.length)    
+};
+
 module.exports = { 
     buildIsolationTree,
     buildSubSample,
@@ -212,5 +233,6 @@ module.exports = {
     splitDataset,
     getTreeAverageDepth,
     getTreesPrediction,
-    scoreTreePrediction
+    scoreTreePrediction,
+    modelEvaluation
 }

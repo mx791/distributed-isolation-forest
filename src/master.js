@@ -199,8 +199,6 @@ wss.on("connection", (ws) => {
                     predictions: predictions
                 })));
             }
-            
         }
-
     })
 });
