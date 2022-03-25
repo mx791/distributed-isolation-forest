@@ -46,3 +46,15 @@ node src/master.js
 node src/slave;js
 node tests/controller.js
 ```
+
+
+## Facteur de réplication
+
+Les variables d'environnement permettent de jouer sur la répartition du jeu de données par le "master".
+Le paramètre USE_DATASET_REPLICATION permet de spécifier si les données doivent être stoqué sur un seul noeud ou répliqués.
+Le paramètre REPLICATION_FACTOR permet de définir le pourcentage du dataset contenu sur chaque noeud.
+ex: 
+REPLICATION_FACTOR = 1 --> chaque noeud contient tout le dataset
+REPLICATION_FACTOR = 1/3 --> chaque noeud contient 33% du jeu de données
+
+Jouer avec ces paramètres permet de fair en sorte que tout tienne en fonction de la mémoire et du nombre de noeuds.

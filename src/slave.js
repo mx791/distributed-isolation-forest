@@ -4,7 +4,7 @@ const { splitDataset, buildIsolationTree, buildSubSample, getTreesAverageDepth, 
 
 const cpuData = os.cpus()
 
-const url = 'ws://localhost:8080'
+const url = process.env.clusterAdress ?? 'ws://localhost:8080';
 const connection = new WebSocket(url)
 
 let dataset = [];

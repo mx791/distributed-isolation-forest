@@ -9,7 +9,8 @@ console.log("Serveur running on port 8080")
 const nodePool = {};
 
 let dataset = [];
-const USE_DATASET_REPLICATION = false;
+const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? true; // est ce que les données sont sur plusieurs noeuds
+const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1/2; // pourcentage du dataset présent sur chaque noeud
 
 let isolationForestParameters = {};
 let trees = [];
@@ -64,7 +65,11 @@ wsm.on("connection", (masterWs) => {
             if (USE_DATASET_REPLICATION) {
                 // la ligne est copié sur tous les noeuds
                 dataset.push(parsedMsg['content']);
-                Object.keys(nodePool).map(connection => nodePool[connection].send(msg));
+                Object.keys(nodePool).map(connection => {
+                    if (Math.random() > REPLICATION_FACTOR) {
+                        nodePool[connection].send(msg)
+                    }
+                });
             } else {
                 // la ligne est transmise à un seul noeud choisi au hasard
                 if (Object.keys(nodePool).length == 0) {
@@ -162,7 +167,6 @@ wss.on("connection", (ws) => {
                 })));
             }
         }
-        
 
         // l'algo a été testé
         if (parsedMsg['type'] == "performed-isolation-forest") {
