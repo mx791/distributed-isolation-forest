@@ -13,19 +13,22 @@ async function main() {
     for (let i=0; i<1500; i++) {
         let value = Math.random()
         master.sendDatasetLine([
-            value, 0.5 - value*0.3 + Math.random()*NOISE
-        ])
+            value, 0.5 - value*0.3
+        ]);
     }
 
     // anomalies
-    for (let i=0; i<150; i++) {
+    for (let i=0; i<100; i++) {
         master.sendDatasetLine([
             Math.random(), Math.random()
         ])
     }
 
-    let trees = await master.trainIsolationForest(false, 1, 10)
+    let trees = await master.trainIsolationForest(true, 100, 256)
     console.log(trees)
+
+    let preds = await master.performIsolationForest(trees);
+    console.log(preds)
 }
 
 

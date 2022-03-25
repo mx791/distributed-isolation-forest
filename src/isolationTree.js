@@ -173,7 +173,7 @@ const getTreeAverageDepth = (tree) => {
 
 // caclul le score d'isolation d'un arbre pour une nouvelle ligne de données
 const getTreesPrediction = (tree, value, useExtended) => {
-    let depth = 1;
+    let depth = 0;
     let nextNode = tree;
 
     while (nextNode != null) {
@@ -183,7 +183,7 @@ const getTreesPrediction = (tree, value, useExtended) => {
             let value = 0;
             let [normalVector, intercept] = nextNode.split
             for (let e=0; e<normalVector.length; e++) {
-                value += normalVector[e] * x[i][e]
+                value += normalVector[e] * value[e]
             }
             right = value > intercept
 
@@ -202,7 +202,7 @@ const getTreesPrediction = (tree, value, useExtended) => {
 }
 
 const scoreTreePrediction = (computedDepth, averageDepth) => {
-    return Math.pow(2, -averageDepth/computedDepth)
+    return Math.pow(2, -computedDepth/averageDepth)
 }
 
 module.exports = { 

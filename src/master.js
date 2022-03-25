@@ -10,7 +10,7 @@ const nodePool = {};
 
 let dataset = [];
 const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? true; // est ce que les données sont sur plusieurs noeuds
-const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1/2; // pourcentage du dataset présent sur chaque noeud
+const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1 // pourcentage du dataset présent sur chaque noeud
 
 let isolationForestParameters = {};
 let trees = [];
@@ -67,7 +67,7 @@ wsm.on("connection", (masterWs) => {
                 // la ligne est copié sur tous les noeuds
                 dataset.push(parsedMsg['content']);
                 Object.keys(nodePool).map(connection => {
-                    if (Math.random() > REPLICATION_FACTOR) {
+                    if (Math.random() < REPLICATION_FACTOR) {
                         nodePool[connection].send(msg)
                     }
                 });
@@ -106,13 +106,29 @@ wsm.on("connection", (masterWs) => {
         if (parsedMsg['type'] == "perform-isolation-forest") {
             predictions = {};
             predictionsCounter = {}
-            let tress = parsedMsg['trees'];
+            let trees = parsedMsg['trees'];
             predictionsCount = 0;
 
-            Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
-                type: "perform-isolation-forest",
-                trees: trees
-            })));
+            if (typeof parsedMsg["datas"] == "undefined") {
+                Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
+                    type: "perform-isolation-forest",
+                    trees: trees
+                })));
+
+            } else {
+                const newDatas = parsedMsg["datas"];
+                let batchSize = Math.floor(newDatas.length / nodePool.length);
+                
+                Object.keys(nodePool).map((connection, i) => {
+                    const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
+                    connection.send(JSON.stringify({
+                        type: "perform-isolation-forest",
+                        trees: trees,
+                        datas: subDatas
+                    }));
+                });
+            }
+            
         }
     })
 })
@@ -175,7 +191,9 @@ wss.on("connection", (ws) => {
                 predictions[key] = currentPreds[key]
             });
 
-            if (predictionsCount == nodePool.length) {
+            console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
+
+            if (predictionsCount == Object.keys(nodePool).length) {
                 controllers.map(connection => connection.send(JSON.stringify({
                     type: "performed-isolation-forest",
                     predictions: predictions

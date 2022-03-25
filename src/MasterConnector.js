@@ -68,12 +68,31 @@ module.exports = class MasterConnector {
 
             this.connection.on("message", (msg) => {
                 try {
-                    const parsedMsg = JSON.parse(msg);
-
+                    const parsedMsg = JSON.parse(msg.toString());
                     if (parsedMsg["type"] == "performed-isolation-forest") {
                         resolve(parsedMsg["predictions"])
                     }
                 } catch(e) {}   
+            });
+        });
+    }
+
+
+    async performIsolationForestOnNewDatas(trees, datas) {
+        return new Promise((resolve) => {
+            this.connection.send(JSON.stringify({
+                type: "perform-isolation-forest",
+                trees: trees,
+                datas: datas
+            }));
+
+            this.connection.on("message", (msg) => {
+                try {
+                    const parsedMsg = JSON.parse(msg);
+                    if (parsedMsg["type"] == "performed-isolation-forest") {
+                        resolve(parsedMsg["predictions"])
+                    }
+                } catch(e) {}
             });
         });
     }

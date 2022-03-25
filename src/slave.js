@@ -63,18 +63,19 @@ connection.on("message", (msg) => {
         const datas = parsedMsg["datas"] ?? dataset;
 
         let treesDepth = 0;
+        let predictions = {};
 
         for (let i=0; i<trees.length; i++) {
-            treesDepth += getTreeAverageDepth(trees[i]) / trees.length;
-            let predictions = {};
+            treesDepth += getTreeAverageDepth(trees[i]);
             for (let e=0; e<datas.length; e++) {
                 predictions[e] = typeof predictions[e] == "undefined" ? 0 : predictions[e];
-                predictions[e] += getTreesPrediction(trees[i], datas[e], useExtended)
+                const pred = getTreesPrediction(trees[i], datas[e], useExtended);
+                predictions[e] += pred;
             }
         }
 
         for (let e=0; e<datas.length; e++) {
-            predictions[e] += scoreTreePrediction(predictions[e], treesDepth)
+            predictions[e] = scoreTreePrediction(predictions[e], treesDepth)
         }
 
         connection.send(JSON.stringify({
