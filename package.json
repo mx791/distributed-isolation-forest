@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@types/ws": "^8.5.3",
     "csv": "^6.0.5",
     "csv-parse": "^5.0.4",
     "uuid": "^8.3.2",

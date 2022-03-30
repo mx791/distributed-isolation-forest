@@ -1,6 +1,6 @@
 System.register([], function (exports_1, context_1) {
     "use strict";
-    var buildSubSample, splitDataset, splitDatasetExtended, areFirstRowsEquals, cleanDoubles, buildIsolationTree, getTreeAverageDepth, getTreesPrediction, scoreTreePrediction, modelEvaluation;
+    var buildSubSample, splitDataset, splitDatasetExtended, areFirstRowsEquals, cleanDoubles, buildIsolationTree, getTreeAverageDepth, getTreesPrediction, scoreTreePrediction, modelEvaluation, IsolationTree;
     var __moduleName = context_1 && context_1.id;
     return {
         setters: [],
@@ -17,6 +17,7 @@ System.register([], function (exports_1, context_1) {
                 }
                 return subDataset;
             };
+            exports_1("buildSubSample", buildSubSample);
             splitDataset = function (x) {
                 var _a = [[], []], a = _a[0], b = _a[1];
                 var splitFeartureId = -1;
@@ -50,6 +51,7 @@ System.register([], function (exports_1, context_1) {
                 }
                 return [a, b, [splitFeartureId, splitValue]];
             };
+            exports_1("splitDataset", splitDataset);
             splitDatasetExtended = function (x) {
                 var _a = [[], []], a = _a[0], b = _a[1];
                 var normalVector = [];
@@ -81,6 +83,7 @@ System.register([], function (exports_1, context_1) {
                 }
                 return [a, b, [normalVector, intercept]];
             };
+            exports_1("splitDatasetExtended", splitDatasetExtended);
             areFirstRowsEquals = function (x) {
                 if (x.length < 2) {
                     return false;
@@ -113,6 +116,7 @@ System.register([], function (exports_1, context_1) {
                     ifFalse: buildIsolationTree(b, useExtended)
                 };
             };
+            exports_1("buildIsolationTree", buildIsolationTree);
             getTreeAverageDepth = function (tree) {
                 var sum = 0;
                 var count = 0;
@@ -138,6 +142,7 @@ System.register([], function (exports_1, context_1) {
                 }
                 return sum / count;
             };
+            exports_1("getTreeAverageDepth", getTreeAverageDepth);
             getTreesPrediction = function (tree, value, useExtended) {
                 var depth = 0;
                 var nextNode = tree;
@@ -164,9 +169,11 @@ System.register([], function (exports_1, context_1) {
                 }
                 return depth;
             };
+            exports_1("getTreesPrediction", getTreesPrediction);
             scoreTreePrediction = function (computedDepth, averageDepth) {
                 return Math.pow(2, -computedDepth / averageDepth);
             };
+            exports_1("scoreTreePrediction", scoreTreePrediction);
             modelEvaluation = function (trees, useExtended, regularDatas, anomalies) {
                 var avgDepth = trees.map(function (tree) { return getTreeAverageDepth(tree); }).reduce(function (acc, value) { return acc + value; });
                 var regularPredictions = regularDatas.map(function (values) {
@@ -184,16 +191,23 @@ System.register([], function (exports_1, context_1) {
                 console.log("moyenne des anomalies:", anomaliesPredictions.reduce(function (acc, value) { return acc + value; }, 0) / anomalies.length);
                 console.log("moyenne des données régulières:", regularPredictions.reduce(function (acc, value) { return acc + value; }, 0) / regularDatas.length);
             };
-            exports_1("default", {
-                buildIsolationTree: buildIsolationTree,
-                buildSubSample: buildSubSample,
-                splitDatasetExtended: splitDatasetExtended,
-                splitDataset: splitDataset,
-                getTreeAverageDepth: getTreeAverageDepth,
-                getTreesPrediction: getTreesPrediction,
-                scoreTreePrediction: scoreTreePrediction,
-                modelEvaluation: modelEvaluation
-            });
+            exports_1("modelEvaluation", modelEvaluation);
+            IsolationTree = (function () {
+                function IsolationTree(dataset, useExtended) {
+                    this.node = null;
+                    this.useExtended = false;
+                    this.useExtended = useExtended;
+                    this.node = buildIsolationTree(dataset, useExtended);
+                }
+                IsolationTree.prototype.getDepth = function () {
+                    return getTreeAverageDepth(this.node);
+                };
+                IsolationTree.prototype.getPrediction = function (value) {
+                    return getTreesPrediction(this.node, value, this.useExtended);
+                };
+                return IsolationTree;
+            }());
+            exports_1("IsolationTree", IsolationTree);
         }
     };
 });
