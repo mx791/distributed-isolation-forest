@@ -209,6 +209,7 @@ const scoreTreePrediction = (computedDepth: number, averageDepth: number): numbe
 
 // calcul les score d'anomalies moyens sur deux jeux de données
 const modelEvaluation = (trees: Tree[], useExtended: boolean, regularDatas: number[][], anomalies: number[][]) => {
+    
     let avgDepth: number = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value);
     let regularPredictions = regularDatas.map((values) => {
         let pred = trees
