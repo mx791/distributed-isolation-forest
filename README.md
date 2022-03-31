@@ -61,3 +61,11 @@ REPLICATION_FACTOR = 1 --> chaque noeud contient tout le dataset
 REPLICATION_FACTOR = 1/3 --> chaque noeud contient 33% du jeu de données
 
 Jouer avec ces paramètres permet de fair en sorte que tout tienne en fonction de la mémoire et du nombre de noeuds.
+
+## Cluster Kubernetes
+
+```
+docker build -t node-master -f Dockerfile.master .
+docker build -t node-worker -f Dockerfile.worker .
+kubectl apply -f deployment.yml
+```

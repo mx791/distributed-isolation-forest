@@ -20,7 +20,7 @@ async function main() {
     // anomalies
     for (let i=0; i<100; i++) {
         master.sendDatasetLine([
-            Math.random(), Math.random()
+            Math.random()*1.3, Math.random()*1.3
         ])
     }
 

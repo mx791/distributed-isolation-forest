@@ -8,7 +8,7 @@ const datas = [];
 for (let i=0; i<1500; i++) {
     let value = Math.random()
     const line = [
-        value, 0.5 - value*0.3
+        value, 0.5 - value*0.3 + Math.random()*0.1
     ];
     datas.push(line);
     datasReg.push(line)
@@ -25,8 +25,8 @@ for (let i=0; i<35; i++) {
 }
 
 let trees = [];
-for (let i=0; i<10; i++) {
-    const newDatas = iTree.buildSubSample(25, datas);
+for (let i=0; i<100; i++) {
+    const newDatas = iTree.buildSubSample(256, datas);
     trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
 }
 
