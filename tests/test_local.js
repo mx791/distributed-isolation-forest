@@ -1,5 +1,5 @@
 const iTree = require("../src/isolationTree");
-
+const modelEval = require("../src/modelEvaluation");
 
 const EXTENDED = true;
 
@@ -25,10 +25,23 @@ for (let i=0; i<35; i++) {
 }
 
 let trees = [];
-for (let i=0; i<10; i++) {
-    const newDatas = iTree.buildSubSample(25, datas);
-    trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
+for (let i=0; i<15; i++) {
+    for (let e=0; e<10; e++) {
+        const newDatas = iTree.buildSubSample(256, datas);
+        trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
+    }
+
+    const anomaliesPreds = iTree.predict(trees, EXTENDED, datasIr);
+    const regPreds = iTree.predict(trees, EXTENDED, datasReg);
+    console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds))
+
 }
 
 iTree.modelEvaluation(trees, EXTENDED, datasReg, datasIr)
 
+
+const anomaliesPreds = iTree.predict(trees, EXTENDED, datasIr);
+const regPreds = iTree.predict(trees, EXTENDED, datasReg);
+console.log(modelEval.AUC(regPreds, anomaliesPreds))
+
+console.log(modelEval.computeConfusionMatrix(regPreds, anomaliesPreds, 0.48))

@@ -2,7 +2,7 @@
 /**
  * Calcul la matrice de confusion sur les predictions
  */
- export const computeConfusionMatrix = (regularDatasScores, anomaliesScore, treshold) => {
+const computeConfusionMatrix = (regularDatasScores, anomaliesScore, treshold) => {
     
     let newConfusionMatrix = {
         trueNegatives: 0,
@@ -33,7 +33,7 @@
 /**
  * Calcul l'AUC pour deux vecteurs de résultat
  */
-export const AUC = (regularDatasScores, anomaliesScore) => {
+const AUC = (regularDatasScores, anomaliesScore) => {
     let goodClassified = 0;
     for (let regularIndex=0; regularIndex<regularDatasScores.length; regularIndex++) {
         for (let irrIndex=0; irrIndex<anomaliesScore.length; irrIndex++) {
@@ -42,4 +42,8 @@ export const AUC = (regularDatasScores, anomaliesScore) => {
     }
     const auc = goodClassified / (regularDatasScores.length * anomaliesScore.length);
     return auc > 0.5 ? auc : 1 - auc;
+}
+
+module.exports = {
+    AUC, computeConfusionMatrix
 }

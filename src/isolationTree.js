@@ -82,7 +82,7 @@ const splitDatasetExtended = (x) => {
         const point = x[Math.floor(Math.random()*x.length)];
         intercept = 0;
         for (let i=0; i<point.length; i++) {
-            intercept += - point[i] * normalVector[i]
+            intercept += point[i] * normalVector[i]
         }
 
         // split du dataset
@@ -205,6 +205,16 @@ const scoreTreePrediction = (computedDepth, averageDepth) => {
     return Math.pow(2, -computedDepth/averageDepth)
 }
 
+const predict = (trees, useExtended, datas) => {
+    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value);
+    return datas.map((values) => {
+        let pred = trees
+            .map(tree => getTreesPrediction(tree, values, useExtended))
+            .reduce((acc, value) => acc + value, 0);
+        return scoreTreePrediction(pred, avgDepth)
+    });
+}
+
 // calcul les score d'anomalies moyens sur deux jeux de données
 const modelEvaluation = (trees, useExtended, regularDatas, anomalies) => {
     let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value);
@@ -234,5 +244,6 @@ module.exports = {
     getTreeAverageDepth,
     getTreesPrediction,
     scoreTreePrediction,
-    modelEvaluation
+    modelEvaluation,
+    predict
 }
