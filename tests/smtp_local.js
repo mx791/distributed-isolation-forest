@@ -11,7 +11,7 @@ let regDatas = [];
 let irDatas = [];
 let first = true;
 
-fs.createReadStream("./datas/Shuttle.csv")
+fs.createReadStream("./datas/SMTP.csv")
 .pipe(parse({delimiter: ','}))
 .on('data', function(csvrow) {
     if (first) {
@@ -19,8 +19,8 @@ fs.createReadStream("./datas/Shuttle.csv")
         return;
     }
     const vector = csvrow.map(value => parseFloat(value))
-    const isAnomalies = vector[9]
-    const vector2 = vector.slice(0,8)
+    const isAnomalies = vector[4]
+    const vector2 = vector.slice(0,3)
     if (isAnomalies){
         irDatas.push(vector2)
     }
@@ -61,13 +61,13 @@ fs.createReadStream("./datas/Shuttle.csv")
     var t2 = performance.now();
     console.log("Temps d'exécution :", t2-t1 + " ms")
 
-    // Enregistrement de la matrice de confusion dans ./Results/Shuttle
+    // Enregistrement de la matrice de confusion dans ./Results/smtp
     const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas);
     const regPreds = iTree.predict(trees, EXTENDED, regDatas);
     var confusionMatrix = modelEval.computeConfusionMatrix(regPreds, anomaliesPreds, 0.5)
     console.log("Confusion Matrix : ", confusionMatrix)
     const fs = require('fs');
-            fs.writeFile("./Results/Shuttle/Confusion matrix shuttle.txt", JSON.stringify(confusionMatrix), function(err) {
+            fs.writeFile("./Results/SMTP/Confusion matrix smtp.txt", JSON.stringify(confusionMatrix), function(err) {
                 if(err) {
                     return console.log(err);
                 }

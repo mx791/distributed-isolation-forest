@@ -31,16 +31,16 @@ fs.createReadStream("./datas/ForestCover.csv")
 })
 .on('end',function() {
     var t1 = performance.now();
-    console.log("données chargées")
+    console.log("Données chargées")
 
     const new_dataset = linearize.linearizeDataset(dataset);
     irDatas = linearize.linearizeDataset(irDatas);
     regDatas = linearize.linearizeDataset(regDatas);
 
 
-    console.log("données normalisées")
+    console.log("Données normalisées")
 
-    console.log(regDatas.length, irDatas.length)
+    console.log("Taille du Dataset :", regDatas.length, "Nombre d'anomalies :", irDatas.length)
     //console.log(new_dataset[0])
 
     let trees = [];
@@ -53,9 +53,37 @@ fs.createReadStream("./datas/ForestCover.csv")
 
         const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas);
         const regPreds = iTree.predict(trees, EXTENDED, regDatas);
-        console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds))
 
+        /*const treeslen = trees.length;
+        const scoreAUC = modelEval.AUC(regPreds, anomaliesPreds);
+        var obj = {treeslen, scoreAUC};
+
+        console.log(obj)
+        const fs = require('fs');
+        fs.writeFile("./Results/test forest cover.txt", JSON.stringify(obj), function(err) {
+            if(err) {
+                return console.log(err);
+            }
+            console.log("The file was saved!");
+        });*/
+        console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds))
+        var t_inter = performance.now()
+        var cumulTime = t_inter-t1
+        console.log(cumulTime, trees.length)
     }
     var t2 = performance.now();
-    console.log("Temps", t2-t1)
+    console.log("Temps d'exécution :", t2-t1 + " ms")
+
+    // Enregistrement de la matrice de confusion dans ./Results/Forest cover
+    const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas);
+    const regPreds = iTree.predict(trees, EXTENDED, regDatas);
+    var confusionMatrix = modelEval.computeConfusionMatrix(regPreds, anomaliesPreds, 0.5)
+    console.log("Confusion Matrix : ", confusionMatrix)
+    const fs = require('fs');
+            fs.writeFile("./Results/Forest cover/Confusion matrix forest cover.txt", JSON.stringify(confusionMatrix), function(err) {
+                if(err) {
+                    return console.log(err);
+                }
+                console.log("The confusion matrix was saved!");
+            });
 });
