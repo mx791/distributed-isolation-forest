@@ -20,7 +20,7 @@ fs.createReadStream("./datas/Shuttle.csv")
     }
     const vector = csvrow.map(value => parseFloat(value))
     const isAnomalies = vector[9]
-    const vector2 = vector.slice(0,8)
+    const vector2 = vector.slice(0,9)
     if (isAnomalies){
         irDatas.push(vector2)
     }

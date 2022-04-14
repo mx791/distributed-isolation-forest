@@ -20,7 +20,7 @@ fs.createReadStream("./datas/ForestCover.csv")
     }
     const vector = csvrow.map(value => parseFloat(value))
     const isAnomalies = vector[10]
-    const vector2 = vector.slice(0,9)
+    const vector2 = vector.slice(0,10)
     if (isAnomalies){
         irDatas.push(vector2)
     }
