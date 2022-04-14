@@ -21,6 +21,8 @@ let predictionsCount = 0;
 
 let controllers = [];
 
+let tempDatas = [];
+
 function checkNodesAndController() {
     Object.keys(nodePool).map(key => {
         try {
@@ -41,11 +43,11 @@ function checkNodesAndController() {
 }
 
 // connexion au master
-wsm.on("connection", (masterWs) => {
+wsm.on("connection", async (masterWs) => {
 
     controllers.push(masterWs)
 
-    masterWs.on("message", (msg) => {
+    masterWs.on("message", async (msg) => {
         let parsedMsg = {};
         checkNodesAndController();
 
@@ -89,18 +91,29 @@ wsm.on("connection", (masterWs) => {
         // declenche l'entrainement de l'IF
         if (parsedMsg['type'] == "train-isolation-forest") {
 
+            const uid = parsedMsg["uid"];
+
             // on extrait les params
             isolationForestParameters['n_trees'] = parsedMsg['n_trees'] ?? 200;
             isolationForestParameters['n_samples'] = parsedMsg['n_samples'] ?? 256;
             isolationForestParameters['extended'] = parsedMsg['extended'] ?? true;
 
-            // repartit les calculs sur les noeuds connectés
-            Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
-                type: "train-isolation-forest",
-                ...isolationForestParameters
-            })));
-        }
+            console.log("je lance l'entrainement")
+            const trees = await trainTrees(
+                isolationForestParameters['n_trees'],
+                isolationForestParameters['n_samples'],
+                isolationForestParameters['extended']
+            );
+            console.log("c'est fait")
 
+            // tous les arbres ont été entrainé --> on envoie les arbres au controller
+            console.log("send trees to controller")
+            controllers.map(connection => connection.send(JSON.stringify({
+                type: "trained-isolation-forest-" + uid,
+                content: trees
+            })));
+
+        }
 
         // on test les arbres sur le DS
         if (parsedMsg['type'] == "perform-isolation-forest") {
@@ -109,26 +122,12 @@ wsm.on("connection", (masterWs) => {
             let trees = parsedMsg['trees'];
             predictionsCount = 0;
 
-            if (typeof parsedMsg["datas"] == "undefined") {
-                Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
-                    type: "perform-isolation-forest",
-                    trees: trees
-                })));
+            const results = await performIsolationForest(trees, parsedMsg["datas"]);
 
-            } else {
-                const newDatas = parsedMsg["datas"];
-                let batchSize = Math.floor(newDatas.length / nodePool.length);
-                
-                Object.keys(nodePool).map((connection, i) => {
-                    const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
-                    connection.send(JSON.stringify({
-                        type: "perform-isolation-forest",
-                        trees: trees,
-                        datas: subDatas
-                    }));
-                });
-            }
-            
+            controllers.map(connection => connection.send(JSON.stringify({
+                type: "performed-isolation-forest",
+                predictions: results
+            })));
         }
     })
 })
@@ -151,54 +150,149 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("message", (msg) => {
-
         checkNodesAndController();
-
-        let parsedMsg = {};
-
-        try {
-            parsedMsg = JSON.parse(msg);
-        } catch (e) {
-            return;
-        }
-
-        // un noeud a renvoyé un arbre
-        if (parsedMsg['type'] == "trained-isolation-forest") {
-            trees.push(parsedMsg['tree']);
-            console.log("entrainement de l'isolation forest : " + trees.length + "/" + isolationForestParameters.n_trees);
-            // si il manquent des arbres --> on relance l'entrainement d'un arbre
-            if (trees.length < isolationForestParameters.n_trees) {
-                ws.send(JSON.stringify({
-                    type: "train-isolation-forest",
-                    ...isolationForestParameters
-                }));
-            } else {
-                // tous les arbres ont été entrainé --> on envoie les arbres au controller
-                console.log("send trees to controller")
-                controllers.map(connection => connection.send(JSON.stringify({
-                    type: "trained-isolation-forest",
-                    content: trees
-                })));
-            }
-        }
-
-        // l'algo a été testé
-        if (parsedMsg['type'] == "performed-isolation-forest") {
-            let currentPreds = parsedMsg['predictions']
-            predictionsCount += 1;
-
-            Object.keys(currentPreds).map((key) => {
-                predictions[key] = currentPreds[key]
-            });
-
-            console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
-
-            if (predictionsCount == Object.keys(nodePool).length) {
-                controllers.map(connection => connection.send(JSON.stringify({
-                    type: "performed-isolation-forest",
-                    predictions: predictions
-                })));
-            }
-        }
     })
 });
+
+async function performIsolationForest(trees, datas = null) {
+    return new Promise((resolve) => {
+        const randomUid = Math.floor(Math.random()*10000);
+        if (typeof datas == "undefined" || datas == null) {
+            Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
+                type: "perform-isolation-forest",
+                trees: trees,
+                callbackUid: randomUid
+            })));
+    
+        } else {
+            let batchSize = Math.floor(datas.length / nodePool.length);
+            Object.keys(nodePool).map((connection, i) => {
+                const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
+                connection.send(JSON.stringify({
+                    type: "perform-isolation-forest",
+                    trees: trees,
+                    datas: subDatas,
+                    callbackUid: randomUid
+                }));
+            });
+        }
+
+        let predictionsCount = 0;
+        let predictions = {};
+
+        Object.keys(nodePool).map((connection, i) => {
+            try {
+                const parsed = JSON.parse(msg);
+                if (parsed["type"] == "performed-isolation-forest-" + randomUid) {
+                    let currentPreds = parsed['predictions']
+                    predictionsCount += 1;
+        
+                    Object.keys(currentPreds).map((key) => {
+                        predictions[key] = currentPreds[key]
+                    });
+        
+                    console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
+        
+                    if (predictionsCount == Object.keys(nodePool).length) {
+                        resolve(predictions);
+                    }
+                    
+                }
+            } catch (e) {}
+        });
+    })
+}
+
+async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true) {
+
+    return new Promise((resolve, reject) => {
+
+        let trees = [];
+        const randomUid = Math.floor(Math.random()*10000);
+
+        Object.keys(nodePool).map(async (connection) => {
+
+            if (refetchDatas) {
+                const datas = await createSubDataset(n_samples);
+                nodePool[connection].send(JSON.stringify({
+                    type: "train-isolation-forest",
+                    n_samples,
+                    extended: use_extended,
+                    callbackUid: randomUid,
+                    datas
+                }));
+            } else {
+                nodePool[connection].send(JSON.stringify({
+                    type: "train-isolation-forest",
+                    n_samples,
+                    extended: use_extended,
+                    callbackUid: randomUid
+                }));
+            }
+            
+
+            nodePool[connection].on("message", async (msg) => {
+
+                try {
+                    const parsed = JSON.parse(msg);
+                    if (parsed["type"] == "trained-isolation-forest-" + randomUid) {
+
+                        console.log("trained tree, " + trees.length + "/" + n_trees)
+                        trees.push(parsed["tree"]);
+
+                        if (trees.length >= n_trees) {
+                            resolve(trees);
+                        } else {
+                            if (refetchDatas) {
+                                const datas = await createSubDataset(n_samples);
+                                nodePool[connection].send(JSON.stringify({
+                                    type: "train-isolation-forest",
+                                    n_samples,
+                                    extended: use_extended,
+                                    callbackUid: randomUid,
+                                    datas
+                                }));
+                            } else {
+                                nodePool[connection].send(JSON.stringify({
+                                    type: "train-isolation-forest",
+                                    n_samples,
+                                    extended: use_extended,
+                                    callbackUid: randomUid
+                                }));
+                            }
+                        }
+                    }
+                }
+                catch (e) {}
+            });
+        });
+    })
+}
+
+async function createSubDataset(sampleCount) {
+    return new Promise((resolve, rej) => {
+        let val = Math.floor(sampleCount / Object.keys(nodePool).length + 1);
+        let nodesDatas = [];
+        const randomUid = Math.floor(Math.random()*10000);
+        console.log("demande de données");
+        Object.keys(nodePool).map((connection, index) => {
+            nodePool[connection].send(JSON.stringify({
+                type: "ask-for-datas",
+                value: val,
+                callbackUid: randomUid
+            }));
+            nodePool[connection].on("message", (msg) => {
+                try {
+                    const parsedMsg = JSON.parse(msg);
+                    if (parsedMsg["type"] == "dataset-sub-sample-" + randomUid) {
+                        nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
+                        console.log("les noeuds m'ont renvoyé les données (" + nodesDatas.length + "/" + sampleCount + ")")
+                        if (nodesDatas.length >= sampleCount) {
+                            resolve(nodesDatas);
+                        }
+                    }
+                } catch (e) {}
+            })
+        })
+    });
+}

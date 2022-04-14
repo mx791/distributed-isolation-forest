@@ -41,17 +41,16 @@ connection.on("message", (msg) => {
     }
 
     if (parsedMsg['type'] == "train-isolation-forest") {
+        const uid = parsedMsg["callbackUid"];
         console.log("creation d'un arbre d'isolation")
         useExtended = parsedMsg['extended'];
-        const tree = buildIsolationTree(
-            buildSubSample(
-                Math.min(parsedMsg['n_samples'], dataset.length), dataset
-            ), useExtended
+        const datas = typeof parsedMsg['datas'] != "undefined" ? parsedMsg['datas'] : buildSubSample(
+            Math.min(parsedMsg['n_samples'], dataset.length), dataset
         );
-        console.log(tree)
+        const tree = buildIsolationTree(datas, useExtended);
         trees.push(tree);
         connection.send(JSON.stringify({
-            type: "trained-isolation-forest",
+            type: "trained-isolation-forest-" + uid,
             tree
         }));
         console.log("trainned tree")
@@ -61,6 +60,7 @@ connection.on("message", (msg) => {
 
         const trees = parsedMsg['trees'];
         const datas = parsedMsg["datas"] ?? dataset;
+        const uid = parsedMsg["callbackUid"];
 
         let treesDepth = 0;
         let predictions = {};
@@ -79,8 +79,18 @@ connection.on("message", (msg) => {
         }
 
         connection.send(JSON.stringify({
-            type: "performed-isolation-forest",
+            type: "performed-isolation-forest-" + uid,
             predictions: predictions
+        }));
+    }
+
+    if (parsedMsg['type'] == "ask-for-datas") {
+        const count = parsedMsg["value"];
+        const uid = parsedMsg["callbackUid"];
+        const subDatas = buildSubSample(count, dataset);
+        connection.send(JSON.stringify({
+            type: "dataset-sub-sample-" + uid,
+            datas: subDatas
         }));
     }
 })

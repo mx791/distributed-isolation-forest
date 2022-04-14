@@ -39,22 +39,24 @@ module.exports = class MasterConnector {
 
 
     async trainIsolationForest(useExtended, nTress, subDatasetSize) {
+        const uid = Math.floor(Math.random()*10000)
         return new Promise((resolve) => {
             this.connection.send(JSON.stringify({
                 type: "train-isolation-forest",
                 extended: useExtended,
                 n_trees: nTress,
-                n_samples: subDatasetSize
+                n_samples: subDatasetSize,
+                uid
             }));
 
             this.connection.on("message", (msg) => {
                 try {
                     const parsedMsg = JSON.parse(msg);
-
-                    if (parsedMsg["type"] == "trained-isolation-forest") {
+                    if (parsedMsg["type"] == "trained-isolation-forest-" + uid) {
                         resolve(parsedMsg["content"])
                     }
-                } catch(e) {}
+                } 
+                catch(e) {}
             })
         })
     }
