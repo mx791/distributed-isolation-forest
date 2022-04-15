@@ -9,19 +9,13 @@ console.log("Serveur running on port 8080")
 const nodePool = {};
 
 let dataset = [];
+
 const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? true; // est ce que les données sont sur plusieurs noeuds
 const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1 // pourcentage du dataset présent sur chaque noeud
+const REFETCH_DATAS = process.env.REFETCH_DATAS ?? true
 
 let isolationForestParameters = {};
-let trees = [];
-
-let predictions = {}
-let predictionsCounter = {}
-let predictionsCount = 0;
-
 let controllers = [];
-
-let tempDatas = [];
 
 function checkNodesAndController() {
     Object.keys(nodePool).map(key => {
@@ -90,9 +84,7 @@ wsm.on("connection", async (masterWs) => {
 
         // declenche l'entrainement de l'IF
         if (parsedMsg['type'] == "train-isolation-forest") {
-
             const uid = parsedMsg["uid"];
-
             // on extrait les params
             isolationForestParameters['n_trees'] = parsedMsg['n_trees'] ?? 200;
             isolationForestParameters['n_samples'] = parsedMsg['n_samples'] ?? 256;
@@ -112,7 +104,6 @@ wsm.on("connection", async (masterWs) => {
                 type: "trained-isolation-forest-" + uid,
                 content: trees
             })));
-
         }
 
         // on test les arbres sur le DS
@@ -154,10 +145,14 @@ wss.on("connection", (ws) => {
     })
 });
 
+/**
+ * Test des données avec les arbres
+ */
 async function performIsolationForest(trees, datas = null) {
     return new Promise((resolve) => {
         const randomUid = Math.floor(Math.random()*10000);
         if (typeof datas == "undefined" || datas == null) {
+            // si les aucune donnée n'est fournie, les noeuds utilisent leur dataset
             Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
                 type: "perform-isolation-forest",
                 trees: trees,
@@ -166,6 +161,7 @@ async function performIsolationForest(trees, datas = null) {
     
         } else {
             let batchSize = Math.floor(datas.length / nodePool.length);
+            // surcharche les données des noeuds
             Object.keys(nodePool).map((connection, i) => {
                 const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
                 connection.send(JSON.stringify({
@@ -202,16 +198,18 @@ async function performIsolationForest(trees, datas = null) {
     })
 }
 
+/**
+ * Entraine les arbre d'isolation
+ */
 async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true) {
-
     return new Promise((resolve, reject) => {
-
         let trees = [];
         const randomUid = Math.floor(Math.random()*10000);
 
         Object.keys(nodePool).map(async (connection) => {
 
-            if (refetchDatas) {
+            if (REFETCH_DATAS) {
+                // cas où les données sont récupérés des noeuds à chaque arbre
                 const datas = await createSubDataset(n_samples);
                 nodePool[connection].send(JSON.stringify({
                     type: "train-isolation-forest",
@@ -229,7 +227,6 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
                 }));
             }
             
-
             nodePool[connection].on("message", async (msg) => {
 
                 try {
@@ -242,7 +239,7 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
                         if (trees.length >= n_trees) {
                             resolve(trees);
                         } else {
-                            if (refetchDatas) {
+                            if (REFETCH_DATAS) {
                                 const datas = await createSubDataset(n_samples);
                                 nodePool[connection].send(JSON.stringify({
                                     type: "train-isolation-forest",
