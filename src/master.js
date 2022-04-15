@@ -195,8 +195,7 @@ async function performIsolationForest(trees, datas = null) {
         
                     if (predictionsCount == Object.keys(nodePool).length) {
                         resolve(predictions);
-                    }
-                    
+                    }   
                 }
             } catch (e) {}
         });
@@ -269,18 +268,25 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
     })
 }
 
+/**
+ * Créer un jeu de données de taille n
+ * Demande des données à tous les noeuds et attend la réponse
+ */
 async function createSubDataset(sampleCount) {
     return new Promise((resolve, rej) => {
+        // combien de données par noeud
         let val = Math.floor(sampleCount / Object.keys(nodePool).length + 1);
         let nodesDatas = [];
         const randomUid = Math.floor(Math.random()*10000);
         console.log("demande de données");
         Object.keys(nodePool).map((connection, index) => {
+            // demande les données
             nodePool[connection].send(JSON.stringify({
                 type: "ask-for-datas",
                 value: val,
                 callbackUid: randomUid
             }));
+            // attente de la réponse
             nodePool[connection].on("message", (msg) => {
                 try {
                     const parsedMsg = JSON.parse(msg);
@@ -288,6 +294,7 @@ async function createSubDataset(sampleCount) {
                         nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
                         console.log("les noeuds m'ont renvoyé les données (" + nodesDatas.length + "/" + sampleCount + ")")
                         if (nodesDatas.length >= sampleCount) {
+                            // si tout est là on renvoie le tableau
                             resolve(nodesDatas);
                         }
                     }
