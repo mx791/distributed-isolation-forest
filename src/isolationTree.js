@@ -86,6 +86,10 @@ const splitDatasetExtended = (x) => {
             intercept += point[i] * normalVector[i]
         }
 
+        if (x.length == 2) {
+            return [[x[0]], [x[1]], [normalVector, intercept]]
+        }
+
         // split du dataset
         for (let i=0; i<x.length; i++) {
             let value = 0;
@@ -97,10 +101,6 @@ const splitDatasetExtended = (x) => {
             } else {
                 b.push(x[i]);
             }
-        }
-
-        if ((a.length == 0 || b.length == 0) && x.length == 2) {
-            return [[x[0]], [x[1]], [normalVector, intercept]]
         }
     }
     return [a, b, [normalVector, intercept]]
