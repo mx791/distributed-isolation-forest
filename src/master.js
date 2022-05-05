@@ -40,11 +40,10 @@ function checkNodesAndController() {
 wsm.on("connection", async (masterWs) => {
 
     controllers.push(masterWs)
-
     masterWs.on("message", async (msg) => {
         let parsedMsg = {};
         checkNodesAndController();
-
+        
         try {
             parsedMsg = JSON.parse(msg);
         } catch (e) {
@@ -59,6 +58,7 @@ wsm.on("connection", async (masterWs) => {
 
         // ajout d'une ligne au DS
         if (parsedMsg['type'] == "add-dataset-line") {
+            console.log("new line")
             if (USE_DATASET_REPLICATION) {
                 // la ligne est copié sur tous les noeuds
                 dataset.push(parsedMsg['content']);

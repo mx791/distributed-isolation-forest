@@ -151,7 +151,7 @@ const buildIsolationTree = (x, useExtended) => {
     }
 }
 
-// caclul la profondeur moyennes des noeuds d'un arbre
+// calcul la profondeur moyennes des noeuds d'un arbre
 const getTreeAverageDepth = (tree) => {
     let sum = 0;
     let count = 0;

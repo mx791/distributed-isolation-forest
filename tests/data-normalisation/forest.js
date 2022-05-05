@@ -6,7 +6,7 @@ const { parse } = require('csv-parse');
 
 let regDatas = [];
 let iregDatas = [];
-const EXTENDED = true;
+const EXTENDED = false;
 
 fs.createReadStream("./datas/ForestCover.csv")
 .pipe(parse({delimiter: ','}))
@@ -22,17 +22,25 @@ fs.createReadStream("./datas/ForestCover.csv")
     console.log("données chargées --> pas de normalisation")
     console.log(regDatas.length, iregDatas.length)
 
+    let timeCounter = 0;
+
     let trees = [];
     for (let i=0; i<15; i++) {
 
+        let start = (new Date()).getMilliseconds();
         for (let e=0; e<10; e++) {
-            const newDatas = iTree.buildSubSample(25, regDatas);
+            const newDatas = iTree.buildSubSample(128, regDatas);
             trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
         }
+        let end = (new Date()).getMilliseconds();
+        timeCounter += (end - start);
     
+        start = (new Date()).getMilliseconds();
         const anomaliesPreds = iTree.predict(trees, EXTENDED, iregDatas);
         const regPreds = iTree.predict(trees, EXTENDED, regDatas);
-        console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds));
+        const auc = modelEval.AUC(regPreds, anomaliesPreds);
+        end = (new Date()).getMilliseconds();
+        console.log(trees.length, auc, timeCounter, (end-start));
     }
 
     new_dataset = linearize.linearizeDataset([...regDatas, ...iregDatas])
@@ -42,18 +50,25 @@ fs.createReadStream("./datas/ForestCover.csv")
     console.log("\ndonnées normalisées")
 
     console.log(regDatas.length, irDatas.length)
+    timeCounter = 0;
 
     trees = [];
     for (let i=0; i<15; i++) {
-
+        let start = (new Date()).getMilliseconds();
         for (let e=0; e<10; e++) {
-            const newDatas = iTree.buildSubSample(25, new_dataset);
+            const newDatas = iTree.buildSubSample(128, new_dataset);
             trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
         }
+        let end = (new Date()).getMilliseconds();
+        timeCounter += (end - start);
     
+        start = (new Date()).getMilliseconds();
         const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas);
         const regPreds = iTree.predict(trees, EXTENDED, regDatas);
-        console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds))
+        const auc = modelEval.AUC(regPreds, anomaliesPreds);
+        end = (new Date()).getMilliseconds();
+        
+        console.log(trees.length, auc, timeCounter, (end-start))
     }
 
 });
