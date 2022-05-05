@@ -177,23 +177,25 @@ async function performIsolationForest(trees, datas = null) {
         let predictions = {};
 
         Object.keys(nodePool).map((connection, i) => {
-            try {
-                const parsed = JSON.parse(msg);
-                if (parsed["type"] == "performed-isolation-forest-" + randomUid) {
-                    let currentPreds = parsed['predictions']
-                    predictionsCount += 1;
-        
-                    Object.keys(currentPreds).map((key) => {
-                        predictions[key] = currentPreds[key]
-                    });
-        
-                    console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
-        
-                    if (predictionsCount == Object.keys(nodePool).length) {
-                        resolve(predictions);
-                    }   
-                }
-            } catch (e) {}
+            connection.on("message", async (msg) => {
+                try {
+                    const parsed = JSON.parse(msg);
+                    if (parsed["type"] == "performed-isolation-forest-" + randomUid) {
+                        let currentPreds = parsed['predictions']
+                        predictionsCount += 1;
+            
+                        Object.keys(currentPreds).map((key) => {
+                            predictions[key] = currentPreds[key]
+                        });
+            
+                        console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
+            
+                        if (predictionsCount == Object.keys(nodePool).length) {
+                            resolve(predictions);
+                        }   
+                    }
+                } catch (e) {}
+            })            
         });
     })
 }
