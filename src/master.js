@@ -58,7 +58,7 @@ wsm.on("connection", async (masterWs) => {
 
         // ajout d'une ligne au DS
         if (parsedMsg['type'] == "add-dataset-line") {
-            console.log("new line")
+            // console.log("new line")
             if (USE_DATASET_REPLICATION) {
                 // la ligne est copié sur tous les noeuds
                 dataset.push(parsedMsg['content']);
@@ -272,7 +272,7 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
 async function createSubDataset(sampleCount) {
     return new Promise((resolve, rej) => {
         // combien de données par noeud
-        let val = Math.floor(sampleCount / Object.keys(nodePool).length + 1);
+        let val = Math.floor(sampleCount / Object.keys(nodePool).length);
         let nodesDatas = [];
         const randomUid = Math.floor(Math.random()*10000);
         console.log("demande de données");
@@ -280,7 +280,7 @@ async function createSubDataset(sampleCount) {
             // demande les données
             nodePool[connection].send(JSON.stringify({
                 type: "ask-for-datas",
-                value: val,
+                value: index >= sampleCount%val ? val+1 : val,
                 callbackUid: randomUid
             }));
             // attente de la réponse
