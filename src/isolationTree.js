@@ -79,10 +79,15 @@ const splitDatasetExtended = (x) => {
         }
 
         // point d'intersection
-        const point = x[Math.floor(Math.random()*x.length)];
+        const pointId = Math.floor(Math.random()*x.length);
+        const point = x[pointId];
         intercept = 0;
         for (let i=0; i<point.length; i++) {
             intercept += point[i] * normalVector[i]
+        }
+
+        if (x.length == 2) {
+            return [[x[0]], [x[1]], [normalVector, intercept]]
         }
 
         // split du dataset
@@ -146,7 +151,7 @@ const buildIsolationTree = (x, useExtended) => {
     }
 }
 
-// caclul la profondeur moyennes des noeuds d'un arbre
+// calcul la profondeur moyennes des noeuds d'un arbre
 const getTreeAverageDepth = (tree) => {
     let sum = 0;
     let count = 0;

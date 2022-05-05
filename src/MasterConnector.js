@@ -34,7 +34,7 @@ module.exports = class MasterConnector {
         this.connection.send(JSON.stringify({
             type: "add-dataset-line",
             content: line
-        }))   
+        }))
     }
 
 
