@@ -14,7 +14,7 @@ async function main() {
     fs.createReadStream("./datas/ForestCover.csv")
     .pipe(parse({delimiter: ','}))
     .on('data', function(csvrow) {
-        if (X.length > 5000) {
+        if (X.length > 25000) {
             return
         }
         const line = csvrow.slice(0, 9).map(value => parseFloat(value))
@@ -29,8 +29,13 @@ async function main() {
             console.log("train")
             const trees = await con.trainIsolationForest(false, 100, 256);
             const end = performance.now()
-            console.log(trees)
+            //console.log(trees)
             console.log(end-start)
+
+            console.log("test")
+            const testStart = performance.now()
+            const results = await con.performIsolationForest(trees);
+            console.log(performance.now() - testStart);
         }, 5000) 
     });
 }

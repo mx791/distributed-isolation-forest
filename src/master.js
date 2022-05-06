@@ -177,7 +177,7 @@ async function performIsolationForest(trees, datas = null) {
         let predictions = {};
 
         Object.keys(nodePool).map((connection, i) => {
-            connection.on("message", async (msg) => {
+            nodePool[connection].on("message", async (msg) => {
                 try {
                     const parsed = JSON.parse(msg);
                     if (parsed["type"] == "performed-isolation-forest-" + randomUid) {
@@ -282,7 +282,7 @@ async function createSubDataset(sampleCount) {
             // demande les données
             nodePool[connection].send(JSON.stringify({
                 type: "ask-for-datas",
-                value: index >= sampleCount%val ? val+1 : val,
+                value: val+1,
                 callbackUid: randomUid
             }));
             // attente de la réponse
