@@ -43,16 +43,25 @@ connection.on("message", (msg) => {
     if (parsedMsg['type'] == "train-isolation-forest") {
         const uid = parsedMsg["callbackUid"];
         useExtended = parsedMsg['extended'];
-        const datas = typeof parsedMsg['datas'] != "undefined" ? parsedMsg['datas'] : buildSubSample(
-            Math.min(parsedMsg['n_samples'], dataset.length), dataset
-        );
-        const tree = buildIsolationTree(datas, useExtended);
-        trees.push(tree);
+        const nTrees = parsedMsg['nTrees'] ?? 1;
+        let trees = [];
+        let startTime = performance.now();
+        console.log("entrainement des arbres")
+        for (let i=0; i<nTrees; i++) {
+            const datas = typeof parsedMsg['datas'] != "undefined" ? parsedMsg['datas'] : buildSubSample(
+                Math.min(parsedMsg['n_samples'], dataset.length), dataset
+            );
+            const tree = buildIsolationTree(datas, useExtended);
+            trees.push(tree);
+            console.log("trainned tree")
+        }
+        let end = performance.now();
+        console.log("trained " + nTrees + " in " + (end-startTime))
         connection.send(JSON.stringify({
             type: "trained-isolation-forest-" + uid,
-            tree
+            tree: trees
         }));
-        console.log("trainned tree")
+        console.log("trees sent")
     }
 
     if (parsedMsg['type'] == "perform-isolation-forest") {

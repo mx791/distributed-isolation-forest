@@ -3,7 +3,7 @@ const fs = require("fs")
 const { parse } = require('csv-parse');
 
 async function main() {
-    const con = new MasterConnector('ws://localhost:30080');
+    const con = new MasterConnector('ws://localhost:8090');
     await con.connect();
     await con.resetDataset();
 
@@ -35,7 +35,7 @@ async function main() {
             const startTest = performance.now();
             const datas = await con.performIsolationForest(trees);
             console.log("test: " + (performance.now()-startTest));
-        }, 5000) 
+        }, 1500) 
     });
 }
 
