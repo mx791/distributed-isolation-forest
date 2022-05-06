@@ -36,13 +36,12 @@ connection.on("message", (msg) => {
 
     if (parsedMsg['type'] == "add-dataset-line") {
         dataset.push(parsedMsg['content']);
-        console.log("ajout d'une ligne au dataset")
-        console.log("taille du dataset : " + dataset.length)
+        //console.log("ajout d'une ligne au dataset")
+        //console.log("taille du dataset : " + dataset.length)
     }
 
     if (parsedMsg['type'] == "train-isolation-forest") {
         const uid = parsedMsg["callbackUid"];
-        console.log("creation d'un arbre d'isolation")
         useExtended = parsedMsg['extended'];
         const datas = typeof parsedMsg['datas'] != "undefined" ? parsedMsg['datas'] : buildSubSample(
             Math.min(parsedMsg['n_samples'], dataset.length), dataset

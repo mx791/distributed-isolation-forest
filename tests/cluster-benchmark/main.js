@@ -14,19 +14,24 @@ async function main() {
     fs.createReadStream("./datas/ForestCover.csv")
     .pipe(parse({delimiter: ','}))
     .on('data', function(csvrow) {
-        if (X.length > 3600) {
+        if (X.length > 5000) {
             return
         }
-        console.log(X.length)
         const line = csvrow.slice(0, 9).map(value => parseFloat(value))
         con.sendDatasetLine(line)
         X.push(line);
         
     })
     .on('end', async function() {
-        console.log("train")
-        const trees = await con.trainIsolationForest(false, 100, 128);
-        console.log(trees)
+        // on attent un peut pour etre sur
+        setTimeout(async () => {
+            const start = performance.now();
+            console.log("train")
+            const trees = await con.trainIsolationForest(false, 100, 256);
+            const end = performance.now()
+            console.log(trees)
+            console.log(end-start)
+        }, 5000) 
     });
 }
 
