@@ -33,9 +33,15 @@ spec:
     app: master
   ports:
     - protocol: TCP
+      name: "worker-port"
       port: 8080
       targetPort: 8080
-  type: ClusterIP
+    - protocol: TCP
+      name: "controller-port"
+      port: 8090
+      nodePort: 30080
+      targetPort: 8090
+  type: NodePort
 ---
 # Worker Pods
 apiVersion: apps/v1
