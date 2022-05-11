@@ -10,12 +10,15 @@ const nodePool = {};
 
 let dataset = [];
 
-const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? true; // est ce que les données sont sur plusieurs noeuds
+const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? false; // est ce que les données sont sur plusieurs noeuds
 const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1 // pourcentage du dataset présent sur chaque noeud
 const REFETCH_DATAS = process.env.REFETCH_DATAS ?? true
 
 let isolationForestParameters = {};
 let controllers = [];
+
+let routeListeners = [];
+let routesToBeRemoved = [];
 
 function checkNodesAndController() {
     Object.keys(nodePool).map(key => {
@@ -36,7 +39,7 @@ function checkNodesAndController() {
     });
 }
 
-// connexion au master
+// connexion au master --> controller
 wsm.on("connection", async (masterWs) => {
 
     controllers.push(masterWs)
@@ -141,7 +144,22 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("message", (msg) => {
+        // a chaque msg on verifie si les noeuds sont tjrs connectés
         checkNodesAndController();
+
+        const parsed = JSON.parse(msg);
+        console.log("nouveau msg", parsed["type"], routeListeners.length, "listeners")
+        // clean des listeners
+        routeListeners = routeListeners.filter((itm) => !routesToBeRemoved.includes(itm.msgType))
+        routeListeners.map(async (itm, i) => {
+            if (itm.msgType !== parsed["type"]) {
+                return true;
+            }
+            const shouldKeep = await itm.callable(parsed);
+            if (!shouldKeep) {
+                routesToBeRemoved.push(itm.msgType)
+            }
+        });
     })
 });
 
@@ -161,7 +179,7 @@ async function performIsolationForest(trees, datas = null) {
     
         } else {
             let batchSize = Math.floor(datas.length / nodePool.length);
-            // surcharche les données des noeuds
+            // surcharge les données des noeuds
             Object.keys(nodePool).map((connection, i) => {
                 const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
                 connection.send(JSON.stringify({
@@ -203,7 +221,7 @@ async function performIsolationForest(trees, datas = null) {
 /**
  * Entraine les arbre d'isolation
  */
-async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true) {
+async function trainTrees(n_trees, n_samples, use_extended) {
     return new Promise((resolve, reject) => {
         let trees = [];
         const randomUid = Math.floor(Math.random()*10000);
@@ -228,42 +246,36 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
                     callbackUid: randomUid
                 }));
             }
-            
-            nodePool[connection].on("message", async (msg) => {
 
-                try {
-                    const parsed = JSON.parse(msg);
-                    if (parsed["type"] == "trained-isolation-forest-" + randomUid) {
-
-                        console.log("trained tree, " + trees.length + "/" + n_trees)
-                        trees.push(parsed["tree"]);
-
-                        if (trees.length >= n_trees) {
-                            resolve(trees);
-                        } else {
-                            if (REFETCH_DATAS) {
-                                const datas = await createSubDataset(n_samples);
-                                nodePool[connection].send(JSON.stringify({
-                                    type: "train-isolation-forest",
-                                    n_samples,
-                                    extended: use_extended,
-                                    callbackUid: randomUid,
-                                    datas
-                                }));
-                            } else {
-                                nodePool[connection].send(JSON.stringify({
-                                    type: "train-isolation-forest",
-                                    n_samples,
-                                    extended: use_extended,
-                                    callbackUid: randomUid
-                                }));
-                            }
-                        }
+            routeListeners.push({
+                msgType: "trained-isolation-forest-" + randomUid,
+                callable: async (parsed) => {
+                    trees.push(parsed["tree"]);
+                    console.log("trained tree, " + trees.length + "/" + n_trees)
+    
+                    if (trees.length >= n_trees) {
+                        resolve(trees);
+                        return false;
                     }
+                    const trainParameters = {
+                        type: "train-isolation-forest",
+                        n_samples,
+                        extended: use_extended,
+                        callbackUid: randomUid
+                    };
+    
+                    if (REFETCH_DATAS) {
+                        const datas = await createSubDataset(n_samples);
+                        trainParameters["datas"] = datas;
+                    }
+    
+                    nodePool[connection].send(JSON.stringify(trainParameters));
+                    return true;
                 }
-                catch (e) {}
-            });
+            })
         });
+
+        
     })
 }
 
@@ -277,7 +289,7 @@ async function createSubDataset(sampleCount) {
         let val = Math.floor(sampleCount / Object.keys(nodePool).length);
         let nodesDatas = [];
         const randomUid = Math.floor(Math.random()*10000);
-        console.log("demande de données");
+        console.log("demande de données", randomUid);
         Object.keys(nodePool).map((connection, index) => {
             // demande les données
             nodePool[connection].send(JSON.stringify({
@@ -285,20 +297,21 @@ async function createSubDataset(sampleCount) {
                 value: val+1,
                 callbackUid: randomUid
             }));
-            // attente de la réponse
-            nodePool[connection].on("message", (msg) => {
-                try {
-                    const parsedMsg = JSON.parse(msg);
-                    if (parsedMsg["type"] == "dataset-sub-sample-" + randomUid) {
-                        nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
-                        console.log("les noeuds m'ont renvoyé les données (" + nodesDatas.length + "/" + sampleCount + ")")
-                        if (nodesDatas.length >= sampleCount) {
-                            // si tout est là on renvoie le tableau
-                            resolve(nodesDatas);
-                        }
-                    }
-                } catch (e) {}
-            })
-        })
+        });
+        // attente de la réponse
+        routeListeners.push({
+            msgType: "dataset-sub-sample-" + randomUid,
+            callable: async (parsedMsg) => {
+                nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
+                console.log("les noeuds m'ont renvoyé les données (" + nodesDatas.length + "/" + sampleCount + ")")
+                if (nodesDatas.length >= sampleCount) {
+                    // si tout est là on renvoie le tableau
+                    resolve(nodesDatas);
+                    return false;
+                }
+                return true;
+            }
+        });
     });
 }
+

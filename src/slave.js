@@ -31,7 +31,7 @@ connection.on("message", (msg) => {
 
     if (parsedMsg['type'] == "reset-dataset") {
         dataset = [];
-        console.log("reset du dataset")
+        console.log("reset du dataset");
     }
 
     if (parsedMsg['type'] == "add-dataset-line") {

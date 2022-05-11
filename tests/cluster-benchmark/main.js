@@ -14,7 +14,7 @@ async function main() {
     fs.createReadStream("./datas/ForestCover.csv")
     .pipe(parse({delimiter: ','}))
     .on('data', function(csvrow) {
-        if (X.length > 25000) {
+        if (X.length > 2500) {
             return
         }
         const line = csvrow.slice(0, 9).map(value => parseFloat(value))
