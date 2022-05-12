@@ -32,11 +32,10 @@ async function main() {
             //console.log(trees)
             console.log(end-start)
 
-            console.log("test")
-            const testStart = performance.now()
-            const results = await con.performIsolationForest(trees);
-            console.log(performance.now() - testStart);
-        }, 5000) 
+            const startTest = performance.now();
+            const datas = await con.performIsolationForest(trees);
+            console.log("test: " + (performance.now()-startTest));
+        }, 1500) 
     });
 }
 
