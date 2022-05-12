@@ -1,0 +1,72 @@
+# Pod du Master
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: master-node
+  labels:
+    app: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: master
+  template:
+    metadata:
+      labels:
+        app: master
+    spec:
+      containers:
+      - name: master
+        image: node-master
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        - containerPort: 8090
+---
+# Service du Master
+apiVersion: v1
+kind: Service
+metadata:
+  name: master-service
+spec:
+  selector:
+    app: master
+  ports:
+    - protocol: TCP
+      name: "worker-port"
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      name: "controller-port"
+      port: 8090
+      nodePort: 30080
+      targetPort: 8090
+  type: NodePort
+---
+# Worker Pods
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-node
+  labels:
+    app: worker
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+      - name: worker
+        image: node-worker
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: clusterAdress
+          value: "ws://master-service:8080"
+        resources:
+          requests:
+            cpu: "1"
