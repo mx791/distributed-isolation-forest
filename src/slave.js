@@ -31,7 +31,7 @@ connection.on("message", (msg) => {
 
     if (parsedMsg['type'] == "reset-dataset") {
         dataset = [];
-        console.log("reset du dataset")
+        console.log("reset du dataset");
     }
 
     if (parsedMsg['type'] == "add-dataset-line") {
@@ -73,22 +73,32 @@ connection.on("message", (msg) => {
         let treesDepth = 0;
         let predictions = {};
 
+        console.log("Perform isolation forest with " + trees.length + " trees on " + datas.length + " lines")
+
         for (let i=0; i<trees.length; i++) {
             treesDepth += getTreeAverageDepth(trees[i]);
             for (let e=0; e<datas.length; e++) {
                 predictions[e] = typeof predictions[e] == "undefined" ? 0 : predictions[e];
-                const pred = getTreesPrediction(trees[i], datas[e], useExtended);
+                let dataVector = datas.map(line => line.vector)
+                const pred = getTreesPrediction(trees[i], dataVector[e], useExtended);
                 predictions[e] += pred;
             }
+            console.log("performed with trees " + (i+1) + "/" + trees.length);
         }
 
-        for (let e=0; e<datas.length; e++) {
-            predictions[e] = scoreTreePrediction(predictions[e], treesDepth)
-        }
+        console.log("done")
+
+        let finalDatasWithScore = Object.keys(predictions).map((key, id) => {
+            return {
+                id: datas[key].id,
+                score: scoreTreePrediction(predictions[key], treesDepth),
+                vector: datas[id].vector
+            }
+        });
 
         connection.send(JSON.stringify({
             type: "performed-isolation-forest-" + uid,
-            predictions: predictions
+            predictions: finalDatasWithScore
         }));
     }
 

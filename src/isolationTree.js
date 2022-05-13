@@ -5,7 +5,7 @@ const buildSubSample = (samplesCount, dataset) => {
     while (subDataset.length < samplesCount) {
         const index = Math.floor(Math.random()*dataset.length);
         if (!ids.includes(index)) {
-            subDataset.push(dataset[index])
+            subDataset.push(dataset[index].vector)
             ids.push(index)
         }
     }
@@ -173,15 +173,15 @@ const getTreeAverageDepth = (tree) => {
         nextNodes = nextNodes2
         depth += 1
     }
-    return sum / count
+    return depth
 }
 
 // caclul le score d'isolation d'un arbre pour une nouvelle ligne de données
 const getTreesPrediction = (tree, value, useExtended) => {
-    let depth = 0;
+    let depth = 1;
     let nextNode = tree;
 
-    while (nextNode != null) {
+    while (nextNode != null && typeof nextNode.split != "undefined") {
         let right = true;
         if (useExtended) {
 
@@ -207,11 +207,13 @@ const getTreesPrediction = (tree, value, useExtended) => {
 }
 
 const scoreTreePrediction = (computedDepth, averageDepth) => {
-    return Math.pow(2, -computedDepth/averageDepth)
+    //return 1 - computedDepth/averageDepth;
+    return Math.pow(2, -averageDepth/computedDepth)
 }
 
 const predict = (trees, useExtended, datas) => {
-    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value);
+    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value, 0);
+   
     return datas.map((values) => {
         let pred = trees
             .map(tree => getTreesPrediction(tree, values, useExtended))

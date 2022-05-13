@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const { getNextUid, writeLog, checkNodesAndController } = require("./masterUtils");
 
 const wss = new WebSocket.Server({ port: 8080 });
 const wsm = new WebSocket.Server({ port: 8090 });
@@ -10,48 +11,23 @@ const nodePool = {};
 
 let dataset = [];
 
-const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? true; // est ce que les données sont sur plusieurs noeuds
-const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1 // pourcentage du dataset présent sur chaque noeud
+const USE_DATASET_REPLICATION = process.env.USE_DATASET_REPLICATION ?? false; // est ce que les données sont sur plusieurs noeuds
+const REPLICATION_FACTOR = process.env.REPLICATION_FACTOR ?? 1 // nombre d'occurance d'une ligne
 const REFETCH_DATAS = process.env.REFETCH_DATAS ?? false
 
 let isolationForestParameters = {};
 let controllers = [];
 
-let jsonTime = 0;
+let routeListeners = [];
+let routesToBeRemoved = [];
 
-function parseJson(datas) {
-    const start = performance.now()
-    datas = JSON.parse(datas);
-    jsonTime += (performance.now()-start)
-    return datas;
-}
-
-function checkNodesAndController() {
-    Object.keys(nodePool).map(key => {
-        try {
-            nodePool[key].send("test")
-        } catch (e) {
-            delete nodePool[key]
-        }
-    });
-
-    controllers = controllers.filter((con) => {
-        try {
-            con.send("test");
-            return true
-        } catch (e) {
-            return false
-        }
-    });
-}
-
-// connexion au master
+// connexion au master --> controller
 wsm.on("connection", async (masterWs) => {
 
     controllers.push(masterWs)
     masterWs.on("message", async (msg) => {
         let parsedMsg = {};
-        checkNodesAndController();
+        checkNodesAndController(nodePool, controllers);
         
         try {
             parsedMsg = JSON.parse(msg);
@@ -61,17 +37,20 @@ wsm.on("connection", async (masterWs) => {
 
         // re-init du jeu de données
         if (parsedMsg['type'] == "reset-dataset") {
-            console.log("reset du dataset")
             dataset = [];
+            writeLog("dataset-reset", "Réinitialisation du jeu de données")
             Object.keys(nodePool).map(connection => nodePool[connection].send(msg))
         }
 
         // ajout d'une ligne au DS
         if (parsedMsg['type'] == "add-dataset-line") {
-            // console.log("new line")
             if (USE_DATASET_REPLICATION) {
                 // la ligne est copié sur tous les noeuds
                 dataset.push(parsedMsg['content']);
+                for (let i=0; i<REPLICATION_FACTOR; i++) {
+                    let indx = Math.floor(Math.random()*Object.keys(nodePool).length);
+                    nodePool[connection].send(msg)
+                }
                 Object.keys(nodePool).map(connection => {
                     if (Math.random() < REPLICATION_FACTOR) {
                         nodePool[connection].send(msg)
@@ -94,22 +73,25 @@ wsm.on("connection", async (masterWs) => {
 
         // declenche l'entrainement de l'IF
         if (parsedMsg['type'] == "train-isolation-forest") {
+
             const uid = parsedMsg["uid"];
             // on extrait les params
             isolationForestParameters['n_trees'] = parsedMsg['n_trees'] ?? 200;
             isolationForestParameters['n_samples'] = parsedMsg['n_samples'] ?? 256;
             isolationForestParameters['extended'] = parsedMsg['extended'] ?? true;
 
-            console.log("je lance l'entrainement")
+            writeLog("train-isolation-forest", "Entrainement de "
+                + isolationForestParameters['n_trees'] + " arbres avec n=" + 
+                isolationForestParameters['n_samples'] + (isolationForestParameters['extended'] ? " en mode extended" : ""))
+
             const trees = await trainTrees(
                 isolationForestParameters['n_trees'],
                 isolationForestParameters['n_samples'],
                 isolationForestParameters['extended']
             );
-            console.log("c'est fait")
+            writeLog("train-isolation-forest", "entrainememnt terminé")
 
             // tous les arbres ont été entrainé --> on envoie les arbres au controller
-            console.log("send trees to controller")
             controllers.map(connection => connection.send(JSON.stringify({
                 type: "trained-isolation-forest-" + uid,
                 content: trees
@@ -139,10 +121,7 @@ wss.on("connection", (ws) => {
     let nodeId = nodeCounter;
     nodeCounter += 1;
     nodePool[nodeId] = ws;
-    console.log("Nouveau noeud connecté !");
-    console.log("nom du noeud: ", nodeId)
-    console.log(Object.keys(nodePool).length + " noeuds en ligne");
-
+    writeLog("node-connection", "Nouveau noeud connecté, total: " + Object.keys(nodePool).length);
 
     ws.on("close", () => {
         delete nodePool[nodeId];
@@ -151,7 +130,22 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("message", (msg) => {
-        checkNodesAndController();
+        // a chaque msg on verifie si les noeuds sont tjrs connectés
+        checkNodesAndController(nodePool, controllers);
+
+        const parsed = JSON.parse(msg);
+
+        // clean des listeners
+        routeListeners = routeListeners.filter((itm) => !routesToBeRemoved.includes(itm.msgType))
+        routeListeners.map(async (itm, i) => {
+            if (itm.msgType !== parsed["type"]) {
+                return true;
+            }
+            const shouldKeep = await itm.callable(parsed, ws);
+            if (!shouldKeep) {
+                routesToBeRemoved.push(itm.msgType)
+            }
+        });
     })
 });
 
@@ -159,9 +153,10 @@ wss.on("connection", (ws) => {
  * Test des données avec les arbres
  */
 async function performIsolationForest(trees, datas = null) {
+    writeLog("perform-isolation-forest", "");
+    let start = performance.now()
     return new Promise((resolve) => {
-        const start = performance.now()
-        const randomUid = Math.floor(Math.random()*10000);
+        const randomUid = getNextUid();
         if (typeof datas == "undefined" || datas == null) {
             // si les aucune donnée n'est fournie, les noeuds utilisent leur dataset
             Object.keys(nodePool).map(connection => nodePool[connection].send(JSON.stringify({
@@ -172,7 +167,7 @@ async function performIsolationForest(trees, datas = null) {
     
         } else {
             let batchSize = Math.floor(datas.length / nodePool.length);
-            // surcharche les données des noeuds
+            // surcharge les données des noeuds
             Object.keys(nodePool).map((connection, i) => {
                 const subDatas = i == datas.slice(i*batchSize, (i+1)*batchSize);
                 connection.send(JSON.stringify({
@@ -185,47 +180,40 @@ async function performIsolationForest(trees, datas = null) {
         }
 
         let predictionsCount = 0;
-        let predictions = {};
+        let predictions = [];
 
-        Object.keys(nodePool).map((connection, i) => {
-            nodePool[connection].on("message", async (msg) => {
-                try {
-                    const parsed = JSON.parse(msg);
-                    if (parsed["type"] == "performed-isolation-forest-" + randomUid) {
-                        let currentPreds = parsed['predictions']
-                        predictionsCount += 1;
-            
-                        Object.keys(currentPreds).map((key) => {
-                            predictions[key] = currentPreds[key]
-                        });
-            
-                        console.log("performed isolation forest " + predictionsCount + "/" + Object.keys(nodePool).length);
-            
-                        if (predictionsCount == Object.keys(nodePool).length) {
-                            const end = performance.now()
-                            console.log("performed in " + (end-start))
-                            resolve(predictions);
-                        }   
-                    }
-                } catch (e) {}
-            })            
-        });
+        routeListeners.push({
+            msgType: "performed-isolation-forest-" + randomUid,
+            callable: (parsed) => {
+                let currentPreds = parsed['predictions']
+                predictionsCount += 1;
+
+                currentPreds.map((value, i) => {
+                    predictions.push(value)
+                });
+    
+                writeLog("performed-isolation-forest", predictionsCount + "/" + Object.keys(nodePool).length)
+                
+                if (predictionsCount == Object.keys(nodePool).length) {
+                    resolve(predictions);
+                    let end = performance.now()
+                    writeLog("performed-isolation-forest ", (end-start) + "ms")
+                    return false;
+                }
+                return true;
+            }
+        })
     })
 }
 
 /**
  * Entraine les arbre d'isolation
  */
-async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true) {
-
-    jsonTime = 0;
-
+async function trainTrees(n_trees, n_samples, use_extended) {
     return new Promise((resolve, reject) => {
-        const startTime = performance.now();
         let trees = [];
-        const randomUid = Math.floor(Math.random()*10000);
-        const treesPerNode = Math.floor(n_trees / Object.keys(nodePool).length + 1);
-
+        const randomUid = getNextUid();
+        let start = performance.now();
         Object.keys(nodePool).map(async (connection) => {
 
             if (REFETCH_DATAS) {
@@ -236,7 +224,6 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
                     n_samples,
                     extended: use_extended,
                     callbackUid: randomUid,
-                    nTrees: treesPerNode,
                     datas
                 }));
             } else {
@@ -244,30 +231,39 @@ async function trainTrees(n_trees, n_samples, use_extended, refetchDatas = true)
                     type: "train-isolation-forest",
                     n_samples,
                     extended: use_extended,
-                    callbackUid: randomUid,
-                    nTrees: treesPerNode
+                    callbackUid: randomUid
                 }));
             }
-            
-            nodePool[connection].on("message", async (msg) => {
-
-                try {
-                    const parsed = parseJson(msg);
-                    if (parsed["type"] !== "trained-isolation-forest-" + randomUid) {
-                        return;
-                    }
-                    console.log("trained tree, " + trees.length + "/" + n_trees)
-                    trees = [...trees, ...parsed["tree"]];
-
-                    if (trees.length >= n_trees) {
-                        console.log("training time: " + (performance.now() - startTime))
-                        console.log("json time: " + jsonTime)
-                        resolve(trees);
-                    }
-                }
-                catch (e) {}
-            });
         });
+
+        routeListeners.push({
+            msgType: "trained-isolation-forest-" + randomUid,
+            callable: async (parsed, connection) => {
+                trees.push(parsed["tree"][0]);
+                writeLog("trained-tree", trees.length + "/" + n_trees);
+
+                if (trees.length >= n_trees) {
+                    resolve(trees);
+                    let end = performance.now()
+                    writeLog("trained-isolation-forest", (end-start) + "ms")
+                    return false;
+                }
+                const trainParameters = {
+                    type: "train-isolation-forest",
+                    n_samples,
+                    extended: use_extended,
+                    callbackUid: randomUid
+                };
+
+                if (REFETCH_DATAS) {
+                    const datas = await createSubDataset(n_samples);
+                    trainParameters["datas"] = datas;
+                }
+
+                connection.send(JSON.stringify(trainParameters));
+                return true;
+            }
+        });        
     })
 }
 
@@ -280,8 +276,8 @@ async function createSubDataset(sampleCount) {
         // combien de données par noeud
         let val = Math.floor(sampleCount / Object.keys(nodePool).length);
         let nodesDatas = [];
-        const randomUid = Math.floor(Math.random()*10000);
-        console.log("demande de données");
+        const randomUid = getNextUid();
+        writeLog("ask-for-data", "n=" + sampleCount);
         Object.keys(nodePool).map((connection, index) => {
             // demande les données
             nodePool[connection].send(JSON.stringify({
@@ -289,20 +285,20 @@ async function createSubDataset(sampleCount) {
                 value: val+1,
                 callbackUid: randomUid
             }));
-            // attente de la réponse
-            nodePool[connection].on("message", (msg) => {
-                try {
-                    const parsedMsg = JSON.parse(msg);
-                    if (parsedMsg["type"] == "dataset-sub-sample-" + randomUid) {
-                        nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
-                        console.log("les noeuds m'ont renvoyé les données (" + nodesDatas.length + "/" + sampleCount + ")")
-                        if (nodesDatas.length >= sampleCount) {
-                            // si tout est là on renvoie le tableau
-                            resolve(nodesDatas);
-                        }
-                    }
-                } catch (e) {}
-            })
-        })
+        });
+        // attente de la réponse
+        routeListeners.push({
+            msgType: "dataset-sub-sample-" + randomUid,
+            callable: async (parsedMsg) => {
+                nodesDatas = [...nodesDatas, ...parsedMsg["datas"]];
+                writeLog("node-sent-datas", nodesDatas.length + "/" + sampleCount)
+                if (nodesDatas.length >= sampleCount) {
+                    // si tout est là on renvoie le tableau
+                    resolve(nodesDatas);
+                    return false;
+                }
+                return true;
+            }
+        });
     });
 }
