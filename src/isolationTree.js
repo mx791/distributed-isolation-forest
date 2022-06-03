@@ -161,19 +161,23 @@ const getTreeAverageDepth = (tree) => {
     while (nextNodes.length != 0) {
         let nextNodes2 = [];
         nextNodes.map((node) => {
-            count += 1
-            sum += depth
+            //count += 1
+            //sum += depth
             if (node.ifTrue != null) {
                 nextNodes2.push(node.ifTrue)
             }
             if (node.ifFalse != null) {
                 nextNodes2.push(node.ifFalse)
             }
+            if (node.ifFalse == null && node.ifTrue == null) {
+                sum += depth;
+                count += 1;
+            }
         })
         nextNodes = nextNodes2
         depth += 1
     }
-    return depth
+    return sum / count
 }
 
 // caclul le score d'isolation d'un arbre pour une nouvelle ligne de données
@@ -208,16 +212,15 @@ const getTreesPrediction = (tree, value, useExtended) => {
 
 const scoreTreePrediction = (computedDepth, averageDepth) => {
     //return 1 - computedDepth/averageDepth;
-    return Math.pow(2, -averageDepth/computedDepth)
+    return Math.pow(2, - computedDepth / averageDepth)
 }
 
 const predict = (trees, useExtended, datas) => {
-    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value, 0);
-   
+    let avgDepth = trees.map(tree => getTreeAverageDepth(tree)).reduce((acc, value) => acc + value, 0) / trees.length;
     return datas.map((values) => {
         let pred = trees
             .map(tree => getTreesPrediction(tree, values, useExtended))
-            .reduce((acc, value) => acc + value, 0);
+            .reduce((acc, value) => acc + value, 0) / trees.length;
         return scoreTreePrediction(pred, avgDepth)
     });
 }

@@ -1,7 +1,7 @@
 const MasterConnector = require("../../src/MasterConnector");
 const fs = require("fs")
 const { parse } = require('csv-parse');
-const { AUC } = require("../../src/modelEvaluation");
+const { AUC, computeConfusionMatrix } = require("../../src/modelEvaluation");
 
 let count = 0;
 let regIds = [];
@@ -41,7 +41,7 @@ async function main() {
         setTimeout(async () => {
             const start = performance.now();
             console.log("train")
-            const trees = await con.trainIsolationForest(false, 100, 256);
+            const trees = await con.trainIsolationForest(true, 100, 256);
             const end = performance.now()
             console.log(end-start)
 
@@ -55,12 +55,17 @@ async function main() {
             datas.map((line) => {
                 if (iregIds.includes(line.id)) {
                     iregScores.push(line.score)
+                    line.vector.push(1)
                 } else {
                     regScores.push(line.score)
+                    line.vector.push(0)
                 }
             });
             console.log(AUC(regScores, iregScores))
-        }, 1500) 
+            console.log(computeConfusionMatrix(regScores, iregScores, 0.365))
+
+            // console.log(datas.map(line => line.vector.join(",") + "," + line.score).join("\n"))
+        }, 1500)
     });
 }
 

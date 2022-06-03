@@ -5,7 +5,7 @@ const fs = require("fs")
 const { parse } = require('csv-parse');
 
 const dataset = [];
-const EXTENDED = true;
+const EXTENDED = false;
 
 let first = true;
 
@@ -16,25 +16,26 @@ fs.createReadStream("./datas/winequality-red.csv")
         first = false;
         return;
     }
-    dataset.push(csvrow.map(value => parseFloat(value)))
+    dataset.push({id: dataset.length, vector: csvrow.map(value => parseFloat(value))})
 })
 .on('end',function() {
 
     console.log("données chargées")
 
-    const new_dataset = linearize.linearizeDataset(dataset);
-    const regDatas = linearize.linearizeDataset(dataset);
+    const new_dataset = dataset // linearize.linearizeDataset(dataset);
+    const regDatas = dataset // linearize.linearizeDataset(dataset);
     const irDatas = [];
 
     console.log("données normlisées")
 
     for (let i=0; i<850; i++) {
         let fakeData = [];
-        for (let e=0; e<new_dataset[0].length; e++) {
+        for (let e=0; e<new_dataset[0].vector.length; e++) {
             fakeData.push(Math.random());
         }
-        irDatas.push(fakeData);
-        new_dataset.push(fakeData);
+        let newLine = {id: new_dataset.length, vector: fakeData};
+        irDatas.push(newLine);
+        new_dataset.push(newLine);
     }
 
     console.log(regDatas.length, irDatas.length)
@@ -43,13 +44,18 @@ fs.createReadStream("./datas/winequality-red.csv")
     for (let i=0; i<15; i++) {
 
         for (let e=0; e<10; e++) {
-            const newDatas = iTree.buildSubSample(12, new_dataset);
+            const newDatas = iTree.buildSubSample(76, new_dataset);
             trees.push(iTree.buildIsolationTree(newDatas, EXTENDED));
         }
     
-        const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas);
-        const regPreds = iTree.predict(trees, EXTENDED, regDatas);
+        const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas.map(val => val.vector));
+        const regPreds = iTree.predict(trees, EXTENDED, regDatas.map(val => val.vector));
         console.log(trees.length, modelEval.AUC(regPreds, anomaliesPreds))
-    
     }
+
+    const anomaliesPreds = iTree.predict(trees, EXTENDED, irDatas.map(val => val.vector));
+    const regPreds = iTree.predict(trees, EXTENDED, regDatas.map(val => val.vector));
+    console.log(anomaliesPreds)
+    console.log(regPreds)
+
 });

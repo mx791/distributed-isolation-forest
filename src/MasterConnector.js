@@ -7,6 +7,9 @@ module.exports = class MasterConnector {
         this.connected = false;
     }
 
+    /**
+     * Ouvre la connexion avec le master
+     */
     async connect() {
         return new Promise((resolve) => {
            this.connection = new WebSocket(this.masterAdress);
@@ -17,6 +20,9 @@ module.exports = class MasterConnector {
         });
     }
 
+    /**
+     * Demande la purge des données présentes sur les noeuds
+     */
     resetDataset() {
         if (!this.connected) {
             throw "Not connected !"
@@ -27,6 +33,9 @@ module.exports = class MasterConnector {
         }))
     }
 
+    /**
+     * Transfert une ligne du dataset vers le cluster
+     */
     sendDatasetLine(line) {
         if (!this.connected) {
             throw "Not connected !"
@@ -37,7 +46,9 @@ module.exports = class MasterConnector {
         }))
     }
 
-
+    /**
+     * Lance la création des arbres d'isolation
+     */
     async trainIsolationForest(useExtended, nTress, subDatasetSize) {
         const uid = Math.floor(Math.random()*10000)
         return new Promise((resolve) => {
@@ -61,6 +72,9 @@ module.exports = class MasterConnector {
         })
     }
 
+    /**
+     * Utilise les arbres fournis pour calculer des scores d'isolations pour les données déja présentes en mémoire
+     */
     async performIsolationForest(trees) {
         return new Promise((resolve) => {
             this.connection.send(JSON.stringify({
@@ -80,6 +94,9 @@ module.exports = class MasterConnector {
     }
 
 
+    /**
+     * Utilise les arbres fournis pour calculer des scores d'isolation sur les nouvelles données
+     */
     async performIsolationForestOnNewDatas(trees, datas) {
         return new Promise((resolve) => {
             this.connection.send(JSON.stringify({
@@ -98,6 +115,5 @@ module.exports = class MasterConnector {
             });
         });
     }
-
 
 }
